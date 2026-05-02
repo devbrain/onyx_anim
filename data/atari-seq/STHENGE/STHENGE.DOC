@@ -1,0 +1,153 @@
+
+
+          ST henge is the product of many hours of work, 
+  
+obviously.  I feel it is the best I have ever done.  I would like 
+  
+to thank my friends for their help and input.  To David Hagood 
+  
+(hey-good) the most for his help on the project. And his 
+  
+many ideas on fleshing out an animation which started by me saying 
+  
+one night "I'd like to do an animation of a drone flying across 
+  
+the Stonehenge object" to which the reply was "If you want to do 
+  
+it right I have a suggestion......" He allowed me to use his MEGA 
+  
+2 and hard drive for the bigger compilings. We scribbled object 
+  
+paths on placemats in a pizza resturant for the rough draft which 
+  
+had the camera sitting in one spot and rotating, then moving the 
+  
+camera along the same path. Then I had the inspiration that is the 
+  
+current paths, move the camera along its own path individually 
+  
+from the drone (now called HULL) and just keep pointing the camera 
+  
+at the object. The name HULL is a mistake, I tried to make a model 
+  
+of the Titanic the night I got CyberSculpt, I used the bend 
+  
+function twice, then tried to "straighten" out the bent object, it 
+  
+didn't work. What happened was I had this object that looked kind 
+  
+of like a punk rock robot with a "Gigerish" head (H.R. Giger 
+  
+designed the creature from "ALIEN"). I liked it but people kept 
+  
+asking if the head was a puff of steam, creativity bit the dust. Also 
+  
+I need to thank the person who created the Stonehenge object, it 
+  
+was included with the original CAD 3-D 1.0, I used to own the 
+  
+program but I donated it to a user group auction. If that human 
+  
+(or otherwise) would write me with the info I would be more than 
+  
+happy to give them credit where credit is due.   
+  
+The base animation fits on a 1 meg machine, but when I added 
+  
+titles it pumped it up about 50K-75K. Let me say that animations 
+  
+that waste a lot of memory just flipping the title screen up or 
+  
+bring the first frame up are making people leary of downloading 
+  
+them. The two offenders I have in mind (and I am not saying they 
+  
+are bad animations) are Red Rock Canyon and Bob the Blob. BTB can 
+  
+  
+  
+be cut from 158K to 73K by cutting out all the titling and putting 
+
+it on one screen with the body of the animation, I know, I tried it.
+
+Krusk is improving but when he made RRC he was pulling teeth to make it. 
+  
+There were two things he could have done to make it easier. I made 
+  
+an animation called CONTOUR just before he released RRC (mine 
+  
+still exists in only a few machines). I just used the fractal 
+  
+generator written by Tom Hudson and created 2 20*20 fractals with 
+  
+water running completely along one edge. This will take the 
+  
+longest, I spent about 20 minutes here. Go into CAD 3-D or CyberScuplt 
+  
+and stretch the objects until they nearly fill the universe. Put 
+  
+both river sections together and you have your valley. Next open 
+  
+all three views and then double click on the rotate icon. You 
+  
+should see crosshairs at this point on all three windows. At the 
+  
+top of the active window will be three numbers, click in the 
+  
+windows where you want your object/camera to go and write down the 
+  
+numbers. Feed these numbers directly into the DEFPT funtion in 
+  
+your CyberControl code.  The numbers won't be exact but with a 
+  
+spline they don't have to be. I spent about 2 hours on CONTOUR. 
+  
+That includes 2 compilings one solid, one wire, the top half of 
+  
+the screen on the solid one was pasted on to the wire frame one. 
+  
+It looks pretty good and is about twice the length of animation of 
+  
+RRC. The latest Krusk animation I have is HOLE IN ONE which is an 
+  
+improvement over RRC.
+
+
+          If any of this is old news then I apologize, I don't 
+  
+have a phone so I don't keep up on the latest developments via 
+  
+BBSes.  This is going to be sent to Atari Explorer, and then 
+  
+Compuserve. I also need to get a copy to certain others who have 
+  
+requsted it.
+
+          
+          I want to thank most of all Tom Hudson whom I have met 
+  
+and talked with, I think he has done (is doing) as much for our 
+  
+machine as any Tramiel and deserves the support of every ST owner 
+  
+on the planet. 
+  
+  
+          Well I did't intend this to be long winded but this 
+  
+file will arc nicely. Watch for my future releases; STroller, 
+  
+LANDSCAPE, Laserskull 2, KICK, TIE (as in fighter), RHINO, THANK YOU, 
+  
+and a 1meg version of STHENGE.
+  
+
+
+                           Later days,
+                           
+                            Ambush Bug
+                            
+                          (S.C. Harmon)
+                           
+9th and Main BBS 316-221-3276 24/12/3
+

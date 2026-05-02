@@ -1,0 +1,15 @@
+# Build trees
+build/
+cmake-build-*/
+
+# IDE
+.idea/
+.vscode/
+*.user
+
+# Editor
+*.swp
+*~
+
+# OS
+.DS_Store

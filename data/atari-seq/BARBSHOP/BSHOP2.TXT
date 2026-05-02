@@ -1,0 +1,36 @@
+                         The Corner Barbershop
+
+                     A CyberPainting by Timothy Early
+
+   This is a CyberPaint sequence file.  Use Animate3.prg to view.  Set
+for ping-pong mode, buffering on, and a speed of 6-8, or whatever you
+prefer.
+
+   I created this animation using CAD 3D v.2.02, CyberControl, and
+CyberPaint.  This complex model features a one-chair barbershop with
+a working mirror.
+
+   Due to a combination of the viewpoint angle and camera motion, the
+CAD 3D delta animation suffered from a severe case of the jaggies.  I
+used CyberPaint extensively to minimize this effect between frames.
+
+   For this animation, CyberControl was invaluable during the construction
+process.  The whole concept began when I tried Tom Hudson's COILMAKE.CTL
+script.  What could I do with a spiral spring?  I made two, rotated one
+180 degrees about its long axis, put caps on the ends, and viola!, a
+red and white barber pole!  Then I needed a wall to mount it on, and from
+there, a whole barbershop.  CyberControl was used to align the various
+pieces, clone objects in place, and move objects in precise increments.
+
+
+   This CyberPainting has been released for the enjoyment of all ST
+owners.  It may not be used for commercial purposes without my permission.
+Comments and critisism welcome.
+
+                                    Timothy Early
+
+                                      Compuserve: 73765,1173
+                                      GEnie:      T.EARLY
+                                      U.S. Mail:  14 Carpenter Rd.
+                                                  Bolton, CT  06043
+

@@ -1,0 +1,55 @@
+                           KLINGON CALAMITY
+                         by Maurice Molyneaux
+                           1-meg ST version
+                        ~~~~~~~~~~~~~~~~~~~~~~~
+ 
+ 
+TITLE:      KLINGONE.SEQ
+ARTIST:     Maurice Molyneaux
+DATE:       January 24, 1992
+RIGHTS:     This animation may be distributed freely as long as this
+            text accompanies all copies of the animation, and the
+            animation itself is not altered in any way and the on-screen
+            text is left unchanged.  The file is copyrighted by the
+            artist and may not be broadcast, altered, used for commerial,
+            promotional or revenue generating purposes.
+FILE TYPE:  Cyber Paint .SEQ (sequence) file
+PLAYBACK:   Cyber Paint or AnimateX program (Atari ST)
+            Autodesk Animator (IBM PC)
+ 
+ 
+THE ANIMATION
+ 
+This animation depicts a Klingon D-7 battlecruiser under fire from an
+Excelsior class Federation starship.  The animation was created to test
+some explosion effects.
+ 
+ 
+HOW-TO
+ 
+The animation was created using several programs.  The starships are
+3-D models constructed in Cyber Sculpt and the flyby passes were rendered
+with CAD-3D 2 (using a Cyber Control script).  The explosion effects...
+for me to know and you to find out.
+ 
+ 
+NOTES ON THIS VERSION
+ 
+To make this animation runable on a 1-megabyte ST system the entire file
+was "letterboxed", with the top 46 and bottom 46 lines of the picture
+being blacked out.  This reduced the total amount of memory taken by the
+animation from almost 1-meg to under 700K!  I was careful to make sure
+nothing important was cut off, so all you really lose is part of the
+opening "flyover" of the Klingon Battlecruiser, bits of the phaser beams,
+and parts of the explosion.
+ 
+ 
+MEMORY
+ 
+This animation should load ANY ST or TT computer provided it has a least
+1-megabyte of RAM.  1-meg ST users should have NOTHING in memory but
+ANIMATEx.PRG in order to view this file.
+ 
+ 
+Copyright 1992 by Maurice Molyneaux
+ 

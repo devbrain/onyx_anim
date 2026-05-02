@@ -1,0 +1,1203 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html lang="en">
+<head><script type="text/javascript" src="https://web-static.archive.org/_static/js/bundle-playback.js?v=2N_sDSC0" charset="utf-8"></script>
+<script type="text/javascript" src="https://web-static.archive.org/_static/js/wombat.js?v=txqj7nKC" charset="utf-8"></script>
+<script>window.RufflePlayer=window.RufflePlayer||{};window.RufflePlayer.config={"autoplay":"on","unmuteOverlay":"hidden","showSwfDownload":true};</script>
+<script type="text/javascript" src="https://web-static.archive.org/_static/js/ruffle/ruffle.js"></script>
+<script type="text/javascript">
+    __wm.init("https://web.archive.org/web");
+  __wm.wombat("http://www.compuphase.com:80/flic.htm#FLICTYPES","20080115011355","https://web.archive.org/","web","https://web-static.archive.org/_static/",
+	      "1200359635");
+</script>
+<link rel="stylesheet" type="text/css" href="https://web-static.archive.org/_static/css/banner-styles.css?v=1utQkbB3" />
+<link rel="stylesheet" type="text/css" href="https://web-static.archive.org/_static/css/iconochive.css?v=3PDvdIFv" />
+<!-- End Wayback Rewrite JS Include -->
+
+<meta name="GENERATOR" content="PPWIZARD version 05.013 on WINXP, FREE tool for Windows, OS/2, DOS and UNIX by Dennis Bareis (http://dennisbareis.id.au/ppwizard.htm)"/>
+
+<meta http-equiv="content-type" content="application/xhtml+xml; charset=UTF-8"/>
+<meta name="author" content="CompuPhase"/>
+<link rel="top" href="./index_en.htm" title="Homepage"/>
+<link rel="up" href="./index_en.htm" title="Up"/>
+<link rel="toc" href="./index_en.htm" title="Table of contents"/>
+<link rel="stylesheet" type="text/css" href="/web/20080115011355cs_/http://www.compuphase.com/cphase-screen.css" media="screen" title="CompuPhase (screen)"/>
+<link rel="stylesheet" type="text/css" href="/web/20080115011355cs_/http://www.compuphase.com/cphase-print.css" media="print,braille"/>
+<!--[if IE 7]><link rel="stylesheet" type="text/css" href="./cphase-screen-ie7.css" media="screen" /><![endif]-->
+<title>The FLIC file format</title>
+</head>
+<body>
+<div id="top"><a href="#main-copy" class="doNotDisplay doNotPrint">Skip to main content.</a></div>
+<div id="header">
+<div class="superHeader">
+<div class="left">
+You are here:
+<a href="./index_en.htm">Home</a> &gt;
+<a href="./articles_en.htm">Articles</a> &gt;
+<a href="./articles_filefmt_en.htm">File formats</a> &gt;
+The FLIC file format
+</div>
+<div class="right">
+<span class="doNotDisplay doNotPrint">Current language:</span>
+<acronym title="This page is in the English language. See the main menu ('Home') for language selection.">
+<img src="/web/20080115011355im_/http://www.compuphase.com/images/flag_en.gif" alt="This page is in the English language. See the main menu ('Home') for language selection." width="43" height="22"/>
+</acronym>
+</div>
+</div>
+<div class="midHeader">
+<div class="right">
+<form action="/web/20080115011355/http://www.compuphase.com/cgi-bin/htsearch" method="post" style="margin:0;"><p>
+<input type="hidden" name="method" value="and"/>
+<input type="hidden" name="format" value="builtin-long"/>
+<input type="hidden" name="sort" value="score"/>
+<input type="hidden" name="config" value="com783"/>
+<input type="hidden" name="restrict" value=""/>
+<input type="hidden" name="exclude" value=""/>
+<!--[If IE 5]>
+<input type="text" name="words" id="words" size="18" value="" class="textbox" alt="Word(s) to search" accesskey="S"/>
+<![endif]-->
+<!--[if !IE]>-->
+<input type="text" name="words" id="words" size="18" value="Alt+S to get here" class="textbox" alt="Word(s) to search" accesskey="S"/>
+<!--<![endif]-->
+<input type="submit" name="submit" class="submit" value="search"/>
+<br/><a href="./htdig/common/search.html">help / extended search</a>
+</p></form>
+</div>
+<div class="left">
+CompuPhase
+</div>
+</div>
+<div class="subHeader">
+<div class="dateline">
+Updated: <a href="./news_en.htm">
+2006-08-14
+</a>
+</div>
+<span class="doNotDisplay doNotPrint"><br/>Navigation:</span>
+<ul class="navigation">
+<li>
+<img src="/web/20080115011355im_/http://www.compuphase.com/images/icon_s_info.gif" alt="Home icon" height="16" width="16"/>
+<a href="./index_en.htm" class="tab">Home</a>
+</li>
+<li>
+<img src="/web/20080115011355im_/http://www.compuphase.com/images/icon_s_handshake.gif" alt="projects icon" height="16" width="16"/>
+<a href="./projects_en.htm" class="tab">Projects</a>
+</li>
+<li>
+<img src="/web/20080115011355im_/http://www.compuphase.com/images/icon_s_disk.gif" alt="Information icon" height="16" width="16"/>
+<a href="./products_en.htm" class="tab">Products</a>
+</li>
+<li>
+<img src="/web/20080115011355im_/http://www.compuphase.com/images/icon_s_papers.gif" alt="icon for articles" height="16" width="16"/>
+<span class="highlighted tab">Articles</span>
+</li>
+</ul>
+</div>
+</div>
+<div id="side-bar">
+<div>
+<p class="sideBarTitle">Articles</p>
+<table class="sideBarTable" width="100%" summary="side menu">
+<tr><td class="sideBarCell">
+<img src="/web/20080115011355im_/http://www.compuphase.com/images/icon_s_papers.gif" alt="icon for articles" height="16" width="16"/>
+</td><td>
+<a href="./articles_en.htm" title="Introduction to the articles">Introduction</a>
+</td></tr><tr><td class="sideBarCell">
+<img src="/web/20080115011355im_/http://www.compuphase.com/images/icon_s_papers.gif" alt="icon for articles" height="16" width="16"/>
+</td><td>
+<a href="./articles_appnotes_en.htm" title="CompuPhase product application notes">Application notes</a>
+</td></tr><tr><td class="sideBarCell">
+<img src="/web/20080115011355im_/http://www.compuphase.com/images/icon_s_papers.gif" alt="icon for articles" height="15" width="15"/>
+</td><td>
+<a href="./articles_windows_en.htm" title="Technical articles related to programming for Microsoft Windows">Microsoft Windows - technical articles</a>
+</td></tr><tr><td class="sideBarCell">
+<img src="/web/20080115011355im_/http://www.compuphase.com/images/icon_s_papers.gif" alt="icon for articles" height="16" width="16"/>
+</td><td>
+<a href="./articles_embedded_en.htm" title="Embedded system programming">Embedded systems</a>
+</td></tr><tr><td class="sideBarCell">
+<img src="/web/20080115011355im_/http://www.compuphase.com/images/icon_s_papers.gif" alt="icon for articles" height="16" width="16"/>
+</td><td>
+<a href="./articles_cg_en.htm" title="Technical articles related to programming computer graphics applications">Computer graphics</a>
+</td></tr><tr><td class="sideBarCell">
+<img src="/web/20080115011355im_/http://www.compuphase.com/images/icon_s_papers.gif" alt="icon for articles" height="16" width="16"/>
+</td><td>
+<a href="./articles_anim_en.htm" title="Introductory or technical articles related to computer animation">Computer animation</a>
+</td></tr><tr><td class="sideBarCell">
+<img src="/web/20080115011355im_/http://www.compuphase.com/images/icon_s_papers.gif" alt="icon for articles" height="16" width="16"/>
+</td><td>
+<a href="./articles_filefmt_en.htm" title="Descriptions and comments on (mostly graphical) file formats">File formats</a>
+</td></tr><tr><td class="sideBarCell">
+<img src="/web/20080115011355im_/http://www.compuphase.com/images/icon_s_papers.gif" alt="icon for articles" height="16" width="16"/>
+</td><td>
+<a href="./articles_misc_en.htm" title="Miscellaneous online articles">Miscellaneous articles</a>
+</td></tr><tr><td class="sideBarCell">
+<img src="/web/20080115011355im_/http://www.compuphase.com/images/icon_s_papers.gif" alt="icon for articles" height="16" width="16"/>
+</td><td>
+<a href="./articles_pub_en.htm" title="A list of magazine articles by authors of CompuPhase">Published articles</a>
+</td></tr>
+</table>
+</div>
+<div class="lighterBackground">
+<p class="sideBarTitle">Copyright</p>
+<span class="sideBarText">
+All papers and articles on this site are copyrighted work.
+This work is licensed under a &nbsp; <br/> <a rel="license" href="https://web.archive.org/web/20080115011355/http://creativecommons.org/licenses/by-sa/2.5/">Creative Commons License</a> &nbsp;<br/>
+<a rel="license" href="https://web.archive.org/web/20080115011355/http://creativecommons.org/licenses/by-sa/2.5/"><img alt="Creative Commons License" border="0" align="center" src="/web/20080115011355im_/http://www.compuphase.com/images/somerights20.png"/></a>
+</span>
+</div>
+</div>
+<div id="main-copy">
+<h1>The FLIC file format</h1><div class="header1Bar">&nbsp;</div>
+<p>In this paper, you will find the file format specifications for a class of
+animation files that fall in the "FLIC" file category. These include:
+<table cellpadding="4" border="1" align="center" summary="FLIC file ypes and extensions">
+<tr><td><b>FLI</b> files (Autodesk Animator)</td>
+<td><b>FLC</b> files (Autodesk Animator Pro)</td></tr>
+<tr><td><b>FLH</b> &amp; <b>FLT</b> files (DTA)</td>
+<td><b>CEL</b> files (Autodesk Animator)</td>
+<tr><td><b>FLX</b> files (Tempra Pro, Mathematica Inc.)</td>
+<td><b>FLX</b> files (U-Lead, 3DStudio MAX)</td></tr>
+<tr><td>Extensions by Pro Motion (Cosmigo)</td>
+<td>Extensions by EGI (ITB CompuPhase)</td></tr>
+</table>
+<p>The original FLIC file format was described by its author (Jim Kent) in
+<a href="#KENT1">Dr. Dobb's Journal, March 1993</a>. The original purpose of
+this document was to document the modifications and extensions that
+<a href="software_egi.htm">EGI</a> (a FLIC compiler and player engine) adds to
+the FLIC file format, but since then it has grown to include all other
+extensions and variations as well. As you may not have Jim Kent's article, all
+standard file information is included in this paper as well.
+<p>There are two "official" <a href="#FLICTYPES">types of FLIC files</a>: FLI
+and FLC (the names of these types refer to the filename extensions). The FLI
+files are the older format and are limited to a resolution of 320&times;200.
+The FLC file format adds configurable resolution and better compression.
+<p>FLX files are a slight variation on the standard FLC format. Actually, there
+are <em>two</em> FLX file formats with slight differences. Both formats use
+32768 colours in a packed RGB format (15-bpp, each pixel takes two bytes).
+The first FLX format was defined for "Tempra Pro" by Mathematica Inc. The
+format used by 3DStudio MAX (Discreet Inc.) also has the extension FLX but
+their format is more like that of 15-bpp FLH files. Where distinction is needed,
+this paper refers to "Tempra FLX" or to "Autodesk FLX" formats (Discreet is
+affiliated to Autodesk).
+<p>Both "Tempra FLX" and "Autodesk FLX" formats use the RLE compression that
+was originally designed for 8-bpp FLC files, which is a sub-optimal solution.
+To improve the compression and to make the file format more flexible with
+regard to colour depth, Dave K. Mason defined new chunk types for his DTA
+program, in addition to tagging the new format with a new "type" ID and new
+extensions (FLH and FLT) as to avoid confusion. A few other programs, notably
+EGI, also support the DTA chunks and type IDs.
+<p>CEL files, finally, are actually either FLI or FLC files with a different
+extension and one more chunk in the "prefix data" (a kind of optional header).
+<h2>Overview</h2>
+<p>A FLIC file stores a number of frames. Every frame contains an image and
+possibly a palette, a label, or other data. Usually, a FLIC file contains a
+ring frame at the end, so that the animation can be played repeatedly without
+a perceptible pause between the last frame and the first (the unpacking of the
+first frame, a complete image, is generally slower than a delta frame update).
+A FLIC file that contains segments (EGI extension) optionally contains a ring
+frame per segment.
+<p>FLIC files are structured in a hierarchy of chunks. A chunk contains a
+fixed part and a variable part. The fixed part of every chunk contains the
+type and the size of the chunk. The rest of the chunk has no fixed format; it
+all depends on the chunk type. The purpose of the chunked structure is to
+allow new chunks to be added without breaking existing FLIC players. A reader
+that does not understand some chunk type can just skip it (using the
+information from the fixed part of the chunk). The figure below shows the
+hierarchy of chunks in a FLIC file.
+<p>All "word" (two bytes) or "double word" (four bytes) values are stored in
+Little Endian (this is the byte order used by the Intel 80x86 and Pentium
+processor series).
+<div class="codeCaption">Overview of the FLIC file structure</div>
+<div class="codeBlock"><pre><a href="#FLICHEADER">File header</a>                   general file information
+
+<a href="#PREFIX_TYPE">Prefix chunk</a>                  FLC files only
+   <a href="#CEL_DATA">Cel data chunk</a>             CEL files (identical to FLC files)
+   <a href="#FRAME_TYPE">Frame chunk</a>                overlay frame, EGI files only
+       <a href="#IMAGE_DATA">&lt;image data&gt;</a>           overlay pixel data
+       <a href="#CEL_DATA">Cel data chunk</a>         overlay origin and transparent colour
+       <a href="#LABEL_DATA">&lt;label data&gt;</a>           overlay label
+   <a href="#PATHMAP">Path map</a>                   EGI files only
+
+<a href="#SEGMENT_TABLE">Segment table chunk</a>           EGI files only
+   <a href="#FLICHEADER">Segment chunk</a>              information of every segment, EGI files only
+   <a href="#LABEL_DATA">&lt;label data&gt;</a>               symbolic names of segments, EGI files only
+
+<a href="#HUFFMAN_TABLE">Huffman table chunk</a>           EGI files only
+
+<a href="#SCRIPT_CHUNK">Script chunk</a>                  EGI files only
+
+<a href="#FRAME_TYPE">Frame chunk</a>                   standard frame
+   <a href="#PSTAMP">Postage stamp</a>              icon, FLC files only
+      <a href="#IMAGE_DATA">&lt;image data&gt;</a>            compressed or uncompressed
+   <a href="#CEL_DATA">Cel data chunk</a>             frame origin, EGI files only
+   <a href="#PALETTE_DATA">&lt;palette data&gt;</a>             colour data
+   <a href="#IMAGE_DATA">&lt;image data&gt;</a>               compressed in various ways
+   <a href="#MASK_DATA">&lt;mask data&gt;</a>                transparency information, EGI files only
+   <a href="#LABEL_DATA">&lt;label data&gt;</a>               symbolic or numeric labels, EGI files only
+   <a href="#REGION">Region chunk</a>               region of frame changes, EGI files only
+   <a href="#WAVE">Wave audio chunk</a>           digitized audio, EGI files only
+   <a href="#USERSTRING">User string chunk</a>          general purpose data, EGI files only
+   <a href="#KEY_PAL">Key palette</a>                key frame data, EGI files only
+   <a href="#KEY_IMAGE">Key image</a>                  key frame data, EGI files only
+
+<a href="#FRAME_TYPE">Ring frame chunk</a>              frame that cycles back
+   <a href="#PALETTE_DATA">&lt;palette data&gt;</a>             see above
+   <a href="#IMAGE_DATA">&lt;image data&gt;</a>               see above
+   <a href="#MASK_DATA">&lt;mask data&gt;</a>                see above
+   <a href="#LABEL_DATA">&lt;label data&gt;</a>               see above
+   <a href="#REGION">Region chunk</a>               see above
+   <a href="#WAVE">Wave audio chunk</a>           see above
+   <a href="#USERSTRING">User string chunk</a>          see above
+
+<a name="PALETTE_DATA"></a>&lt;palette data&gt; is one of either:
+   <a href="#COLOR_xx">"256" colour palette</a>       palette with 8-bpp RGB entries
+   <a href="#COLOR_xx">"64" colour palette</a>        palette with 6-bpp RGB entries
+
+<a name="IMAGE_DATA"></a>&lt;image data&gt; is one of either:
+   <a href="#BLACK">Black frame</a>                full black frame
+   <a href="#FLI_COPY">Uncompressed full frame</a>    uncompressed pixel block
+   <a href="#BYTE_RUN">Full frame</a>                 RLE compressed, EGI also supports Huffman/BWT
+   <a href="#DELTA_FLI">Delta frame (old style)</a>    RLE compressed
+   <a href="#DELTA_FLC">Delta frame (new style)</a>    RLE compressed, EGI also supports Huffman/BWT
+   <a href="#DTA_xx">HiColor/True Color frame</a>   DTA and EGI only
+
+<a name="MASK_DATA"></a>&lt;mask data&gt; is one of either:
+   <a href="#BMP_MASK">Bitmap mask chunk</a>          EGI files only
+   <a href="#BMP_MASK">Multilevel mask chunk</a>      EGI files only
+   <a href="#RGN_MASK">Region mask chunk</a>          EGI files only
+
+<a name="LABEL_DATA"></a>&lt;label data&gt; is one of either:
+   <a href="#LABEL">Label chunk</a>                EGI files only
+   <a href="#LABEL">Extended label chunk</a>       EGI files only</pre></div> 
+<h3>The file header</h3>
+<p>A FLIC file starts with a 128-byte header, see
+<a href="#FLICHEADER">the figure below for a C structure</a>. The
+<b>type</b> field contains:
+<a name="FLICTYPES"></a>
+<table cellspacing="8" summary="FLIC file types and versions">
+<tr><td valign="top"><b>0xAF11</b></td><td>For FLI files</td></tr>
+<tr><td valign="top"><b>0xAF12</b></td><td>For standard FLC files (with an
+8-bit colour depth). FLX files (both "Tempra FLX" and "Autodesk FLX") also
+use this header type.</td></tr>
+<tr><td valign="top"><b>0xAF44</b></td><td>For FLIC files with
+a colour depth other than 8. The DTA program (by Dave K. Mason) makes
+FLIC files with a colour depth of 1, 15, 16 or 24 bits per pixel.
+EGI version 3.0 (and later) supports 16-bpp FLIC files.</td></tr>
+<tr><td valign="top"><b>0xAF30</b></td><td>For FLIC files that
+use Huffman or BWT compression. These FLIC files can also have
+a colour resolution that is different from 8 bits per pixel.</td></tr>
+<tr><td valign="top"><b>0xAF31</b></td><td>For FLIC files that
+use "frame shift" compression. These FLIC files may use additional compression
+schemes like Huffman and BWT; They can also have a colour resolution that is
+different from 8 bits per pixel.</td></tr>
+<tr><td valign="top"><b>???</b></td><td>Password protected FLIC files have a
+scrambled type field, so that previous versions of EGI and other
+FLIC readers will identify them as invalid (or unknown)
+FLIC files.</td></tr>
+</table>
+<p>For FLI files, the delay between two frames is in increments of
+1/70 second; FLC files specify the speed in milliseconds.
+The header for a FLI file does not contain the offset of the
+first and second frames; the first frame is assumed to start directly behind
+the file header (no "prefix", "segment table" or "Huffman table" chunks) and
+the offset to the second frame is easily computed once you read in the header
+of the first frame. The purpose of storing the offset to the second frame is
+that, after playing the ring frame, the <em>next</em> frame to display is the
+<em>second</em> frame of the animation.
+<p>Autodesk Animator Pro also stores the MS-DOS formatted date and time stamps
+of the initial creation and last update of the FLIC file, as well
+as the serial number of the copy of the Animator Pro program that made/updated
+the file (in the <b>creator</b> and <b>updater</b> fields). Other
+utilities set the <b>creator</b> field to:
+<table cellspacing="8" summary="FLIC file 'creator' values">
+<tr><td align="left" valign="top"><b>0</b></td><td>Unknown (<a href="https://web.archive.org/web/20080115011355/http://www.cosmigo.com/promotion/">Pro Motion</a>, DTA, VFD or other)</td></tr>
+<tr><td align="left" valign="top"><b>0x45474900</b></td><td><a href="software_egi.htm">EGI</a></td></tr>
+<tr><td align="left" valign="top"><b>0x464c4942</b></td><td>FlicLib</td></tr>
+<tr><td align="left" valign="top"><b>0x42494c46</b></td><td>FlicLib - release 2</td></tr>
+<tr><td align="left" valign="top"><b>0x41544542</b></td><td>Micrografx Simply3D</td></tr>
+<tr><td align="left" valign="top"><b>0x30314c46</b></td><td>Discreet 3DStudio MAX</td></tr>
+<!--<tr><td align=left valign=top><b>0x2b1e1068</b></td><td>Mathematica Tempra Pro</td></tr>
+Mathematica Tempra Pro fills in the date/time, U-Lead does not; both set the
+"creator" and "updater" field to 0.
+-->
+</table>
+<p>The <b>frames</b> field in the FLIC file header does not
+include the ring frame that loops back to the beginning of the animation.
+<p>The <b>flags</b> field is used internally by Autodesk Animator Pro. If a
+FLIC file is written to disk and closed correctly, Animator Pro
+sets this field to 3. Several other utilities set it to zero.
+<a name="FLICHEADER"></a>
+<div class="codeCaption">The FLIC file header</div>
+<div class="codeBlock"><pre>
+typedef struct {
+  DWORD size;          /* Size of FLIC including this header */
+  WORD  type;          /* File type 0xAF11, 0xAF12, 0xAF30, 0xAF44, ... */
+  WORD  frames;        /* Number of frames in first segment */
+  WORD  width;         /* FLIC width in pixels */
+  WORD  height;        /* FLIC height in pixels */
+  WORD  depth;         /* Bits per pixel (usually 8) */
+  WORD  flags;         /* Set to zero or to three */
+  DWORD speed;         /* Delay between frames */
+  WORD  reserved1;     /* Set to zero */
+  DWORD created;       /* Date of FLIC creation (FLC only) */
+  DWORD creator;       /* Serial number or compiler id (FLC only) */
+  DWORD updated;       /* Date of FLIC update (FLC only) */
+  DWORD updater;       /* Serial number (FLC only), see creator */
+  WORD  aspect_dx;     /* Width of square rectangle (FLC only) */
+  WORD  aspect_dy;     /* Height of square rectangle (FLC only) */
+  WORD  ext_flags;     /* EGI: flags for specific EGI extensions */
+  WORD  keyframes;     /* EGI: key-image frequency */
+  WORD  totalframes;   /* EGI: total number of frames (segments) */
+  DWORD req_memory;    /* EGI: maximum chunk size (uncompressed) */
+  WORD  max_regions;   /* EGI: max. number of regions in a CHK_REGION chunk */
+  WORD  transp_num;    /* EGI: number of transparent levels */
+  BYTE  reserved2[24]; /* Set to zero */
+  DWORD oframe1;       /* Offset to frame 1 (FLC only) */
+  DWORD oframe2;       /* Offset to frame 2 (FLC only) */
+  BYTE  reserved3[40]; /* Set to zero */
+} FLIC_HEADER;</pre></div> 
+<p>The modifications that EGI made to the FLIC file header are subtler.
+Not only are there a few added fields, but you must also decide whether the
+fields are valid:
+<ul>
+<li> First verify that the FLIC file is created by EGI. If the "<b>creator</b>" field
+of the FLIC file header is not equal to <b>0x45474900</b>, the <b>ext_flags</b>
+field is not valid.
+<li> The <b>ext_flags</b> field indicates what extensions were used. If this value is
+zero (no extensions) the file is a "compatible" FLC file.
+<table border="0" cellspacing="0" width="80%" align="center" bgcolor="#660000" summary="Description of the 'extensions' flags">
+<tr><td><font color="#ffffff" face="arial, helvetica"><b>&nbsp;bit&nbsp;&nbsp;</b></font></td><td><font color="#ffffff" face="arial, helvetica"><b>meaning</b></font></td>
+<tr><td bgcolor="#cccccc"><font color="#660000">0</font></td><td bgcolor="#cccccc"><font color="#660000">file contains segments (segment table present)</font></td></tr>
+<tr><td bgcolor="#cccccc"><font color="#660000">1</font></td><td bgcolor="#cccccc"><font color="#660000">file contains key images at regular intervals</font></td></tr>
+<tr><td bgcolor="#cccccc"><font color="#660000">2</font></td><td bgcolor="#cccccc"><font color="#660000">all frames have an identity palette</font></td></tr>
+<tr><td bgcolor="#cccccc"><font color="#660000">3</font></td><td bgcolor="#cccccc"><font color="#660000">file is Huffman compressed</font></td></tr>
+<tr><td bgcolor="#cccccc"><font color="#660000">4</font></td><td bgcolor="#cccccc"><font color="#660000">file is BWT-Huffman compressed</font></td></tr>
+<tr><td bgcolor="#cccccc"><font color="#660000">5</font></td><td bgcolor="#cccccc"><font color="#660000">bitmap masks are present</font></td></tr>
+<tr><td bgcolor="#cccccc"><font color="#660000">6</font></td><td bgcolor="#cccccc"><font color="#660000">multilevel masks are present</font></td></tr>
+<tr><td bgcolor="#cccccc"><font color="#660000">7</font></td><td bgcolor="#cccccc"><font color="#660000">region data is present</font></td></tr>
+<tr><td bgcolor="#cccccc"><font color="#660000">8</font></td><td bgcolor="#cccccc"><font color="#660000">file is password protected</font></td></tr>
+<tr><td bgcolor="#cccccc"><font color="#660000">9</font></td><td bgcolor="#cccccc"><font color="#660000">animation file contains digitized audio</font></td></tr>
+<tr><td bgcolor="#cccccc"><font color="#660000">10</font></td><td bgcolor="#cccccc"><font color="#660000">animation file contains a script</font></td></tr>
+<tr><td bgcolor="#cccccc"><font color="#660000">11</font></td><td bgcolor="#cccccc"><font color="#660000">region masks are present</font></td></tr>
+<tr><td bgcolor="#cccccc"><font color="#660000">12</font></td><td bgcolor="#cccccc"><font color="#660000">animation file contains overlays</font></td></tr>
+<tr><td bgcolor="#cccccc"><font color="#660000">13</font></td><td bgcolor="#cccccc"><font color="#660000">file is frame-shift compressed</font></td></tr>
+</table>
+<li> If the script contains "<b>segment</b>" instructions, the EGI compiler produces a segment
+table. The segment table will come right after the FLIC header. Bit 0 of the
+"<b>ext_flags</b>" field indicates whether there is a segment table in the file.
+<li> In a segmented file, the "<b>frames</b>" field is set to the number of frames
+in the first segment (excluding the optional ring frame). Likewise, the
+fields for the offsets to the first and second frames ("<b>oframe1</b>" and
+"<b>oframe2</b>") are set to those of the first segment.
+<li> The <b>totalframes</b> field is the total number of frames in all segments,
+including all ring frames.
+</ul>
+<h3>Chunks and subchunks</h3>
+<p>Every chunk starts with a 6-byte header, that contains the size (four
+bytes) and the type (two bytes) for the chunk. <b>All chunks sizes should be
+rounded up to an <em>even</em> number of bytes</b>. The values of the main level
+chunks are above <b>0xF100</b>, values of the subchunks are below 100
+(decimal). As you can see in figure "Overview of the FLIC file structure",
+nearly all of the subchunks appear in the "frame" chunk.
+<p>Chunks types are indicated in the FLIC file with a two-byte
+value, but Jim Kent's article tagged names on those values (these names appear
+to be extracted from the Animator Pro source code). For ease of writing, I use
+the same names, in the same glorious ALL UPPER CAPS" that has
+become common in discussing the FLIC file format.
+<div class="codeCaption">Overview of all chunks</div>
+<div class="codeBlock"><pre>   3       CEL_DATA             registration and transparency
+   4       COLOR_256            256-level colour palette
+   7       DELTA_FLC (FLI_SS2)  delta image, word oriented RLE
+  11       COLOR_64             64-level colour palette
+  12       DELTA_FLI (FLI_LC)   delta image, byte oriented RLE
+  13       BLACK                full black frame (rare)
+  15       BYTE_RUN (FLI_BRUN)  full image, byte oriented RLE
+  16       FLI_COPY             uncompressed image (rare)
+  18       PSTAMP               postage stamp (icon of the first frame)
+  25       DTA_BRUN             full image, pixel oriented RLE
+  26       DTA_COPY             uncompressed image
+  27       DTA_LC               delta image, pixel oriented RLE
+  31       LABEL                frame label
+  32       BMP_MASK             bitmap mask
+  33       MLEV_MASK            multilevel mask
+  34       SEGMENT              segment information
+  35       KEY_IMAGE            key image, similar to BYTE_RUN / DTA_BRUN
+  36       KEY_PAL              key palette, similar to COLOR_256
+  37       REGION               region of frame differences
+  38       WAVE                 digitized audio
+  39       USERSTRING           general purpose user data
+  40       RGN_MASK             region mask
+  41       LABELEX              extended frame label (includes symbolic name)
+  42       SHIFT                scanline delta shifts (compression)
+  43       PATHMAP              path map (segment transitions)
+
+  0xF100   PREFIX_TYPE          prefix chunk
+  0xF1E0   SCRIPT_CHUNK         embedded "Small" script
+  0xF1FA   FRAME_TYPE           frame chunk
+  0xF1FB   SEGMENT_TABLE        segment table chunk
+  0xF1FC   HUFFMAN_TABLE        Huffman compression table chunk</pre></div> 
+<p>The rest of the document discusses these chunks and subchunks in detail.
+On the right of the caption for each chunk type is the product for which
+this chunk is valid. Autodesk Animator is not mentioned explicitly, because
+there exist (to my knowledge) no chunks that <em>only</em> Animator
+supports.
+<!-- PREFIX_TYPE / all -->
+<a name="PREFIX_TYPE"></a>
+<div class="titleBar"><div style="clear:both;float:right;text-align:right;font-size:83%;">all</div>PREFIX_TYPE</div>
+The prefix chunk contains (undocumented) settings and cel data. It usually
+appears in .CEL files.
+<div class="codeBlock"><pre>
+typedef struct {
+  DWORD size;           /* Size of the chunk, including subchunks */
+  WORD  type;           /* Chunk type: 0xF100 */
+  WORD  chunks;         /* Number of subchunks */
+  BYTE  reserved[8];    /* Reserved, set to 0 */
+} PREFIX_HDR;</pre></div> 
+<!-- CEL_DATA / all -->
+<a name="CEL_DATA"></a>
+<div class="titleBar"><div style="clear:both;float:right;text-align:right;font-size:83%;">all, EGI 3+, EGI 4</div>CEL_DATA</div>
+<div class="codeBlock"><pre>
+typedef struct {
+  DWORD size;           /* Size of the chunk, always 64 */
+  WORD  type;           /* Chunk type: 3 */
+  short center_x;       /* Coordinates of the cel centre or origin */
+  short center_y;
+  WORD  stretch_x;      /* Stretch amounts */
+  WORD  stretch_y;
+  WORD  rot_x;          /* Rotation in x-axis (always 0) */
+  WORD  rot_y;          /* Rotation in y-axis (always 0) */
+  WORD  rot_z;          /* z-axis rotation, 0-5760=0-360 degrees */
+  WORD  cur_frame;      /* Current frame in cel file */
+  BYTE  reserved1[2];   /* Reserved, set to 0 */
+  WORD  transparent;    /* Transparent colour index */
+  WORD  overlay[16];    /* Frame overlay numbers */
+  BYTE  reserved2[6]    /* Reserved, set to 0 */
+} CEL_DATA;</pre></div> 
+<p>The <b>CEL_DATA</b> chunk is usually not present in FLC
+files. Intermediate files used by Autodesk Animator Pro with the
+.CEL extension usually contain a <b>CEL_DATA</b> in the
+prefix chunk. The CEL files have the same format as
+FLC files.
+<p>EGI version 3.0 and later may generate <b>CEL_DATA</b> chunks inside normal
+frames; i.e. outside the prefix chunk. EGI uses the <b>CEL_DATA</b> chunk
+to hold the origin of the frame. Sprite animation toolkits can use the origin
+of a frame for run-time "registration" of the frame. (Registration is a term
+that animators use to mean the correct positioning of a frame in relation to
+the other frames and to the background image.)
+<p>EGI uses only the <b>center_x</b> and <b>center_y</b> fields
+of the structure. The <b>center_x</b> field gives the horizontal offset
+of the origin relative to the left edge of the frame. The <b>center_y</b>
+field is the vertical offset of the origin relative to the top edge, where a
+positive value points downwards.
+<p>In EGI 4.0, the overlay array holds up to 16 labels of overlays that can
+apply to a frame. When an element in this array is zero, this means "no overlay".
+The FLIC player chooses one of these overlays (or none) as the
+default overlay. Which overlay it chooses depends on the "overlay index" that
+one selects in the player. If the overlay index is zero, no overlay is displayed;
+if it is 1, the first overlay listed in the array is used, and so on.
+<!-- SCRIPT_CHUNK / EGI 3+ -->
+<a name="SCRIPT_CHUNK"></a>
+<div class="titleBar"><div style="clear:both;float:right;text-align:right;font-size:83%;">EGI 3+</div>SCRIPT_CHUNK</div>
+<p>EGI supports embedded run-time scripts in FLIC files that are
+written in the <a href="./pawn/pawn.htm">"<span class="smallCaps" style="font-family:Arial,Helvetica,Swiss,sans-serif;">pawn</span>" language</a> (see
+<a href="https://web.archive.org/web/20080115011355/http://www.compuphase.com/pawn/pawn.htm">http://www.compuphase.com/pawn/pawn.htm</a>).
+The compiled P-code is added to the FLIC file. The format of the compiled P-code and an
+instruction reference can be found in the Small manual (available on-line as
+a PDF document on the Small language page mentioned earlier).
+<p>Specific functions in the run-time script execute on "events" in the
+FLIC animation, such as reaching the last frame of the segment
+(this is the frame before the ring frame). The currently defined event functions
+are:
+<table border="0" cellpadding="5" cellspacing="0" width="80%" align="center" bgcolor="#660000" summary="Description of event functions">
+<tr><td><font color="#ffffff" face="arial, helvetica"><b>&nbsp;Function&nbsp;&nbsp;</b></font></td><td><font color="#ffffff" face="arial, helvetica"><b>Description</b></font></td>
+<tr><td bgcolor="#cccccc"><font color="#660000">@FlicClose()</font></td><td bgcolor="#cccccc"><font color="#660000">Called when the animation is closed</font></td></tr>
+<tr><td bgcolor="#cccccc"><font color="#660000">@FlicFrame(framenumber)</font></td><td bgcolor="#cccccc"><font color="#660000">Called after each frame is decoded</font></td></tr>
+<tr><td bgcolor="#cccccc"><font color="#660000">@FlicLabel(label)</font></td><td bgcolor="#cccccc"><font color="#660000">Called when a label was reached</font></td></tr>
+<tr><td bgcolor="#cccccc"><font color="#660000">@FlicLastFrame()</font></td><td bgcolor="#cccccc"><font color="#660000">Called when the animation reaches its last frame of the current segment</font></td></tr>
+<tr><td bgcolor="#cccccc"><font color="#660000">@FlicLButtonDown(x, y)</font></td><td bgcolor="#cccccc"><font color="#660000">Called when the left mouse button is pressed in the animated frame</font></td></tr>
+<tr><td bgcolor="#cccccc"><font color="#660000">@FlicLButtonUp(x, y)</font></td><td bgcolor="#cccccc"><font color="#660000">Called when the left mouse button is released in the animated frame</font></td></tr>
+<tr><td bgcolor="#cccccc"><font color="#660000">@FlicOpen()</font></td><td bgcolor="#cccccc"><font color="#660000">Called when the animation is opened</font></td></tr>
+<tr><td bgcolor="#cccccc"><font color="#660000">@FlicPlay()</font></td><td bgcolor="#cccccc"><font color="#660000">Called when the animation is starts playing</font></td></tr>
+<tr><td bgcolor="#cccccc"><font color="#660000">@FlicRButtonDown(x, y)</font></td><td bgcolor="#cccccc"><font color="#660000">Called when the right mouse button is pressed in the animated frame</font></td></tr>
+<tr><td bgcolor="#cccccc"><font color="#660000">@FlicRButtonUp(x, y)</font></td><td bgcolor="#cccccc"><font color="#660000">Called when the right mouse button is released in the animated frame</font></td></tr>
+<tr><td bgcolor="#cccccc"><font color="#660000">@FlicSegment(segmentnumber)</font></td><td bgcolor="#cccccc"><font color="#660000">Called when a new segment has just started</font></td></tr>
+<tr><td bgcolor="#cccccc"><font color="#660000">@FlicStop()</font></td><td bgcolor="#cccccc"><font color="#660000">Called when the animation is stopped explicitly</font></td></tr>
+</table>
+<!-- SEGMENT_TABLE / EGI 1+ -->
+<a name="SEGMENT_TABLE"></a>
+<div class="titleBar"><div style="clear:both;float:right;text-align:right;font-size:83%;">EGI 1+</div>SEGMENT_TABLE</div>
+<div class="codeBlock"><pre>
+typedef struct {
+  DWORD size;          /* Size of this chunk, including subchunks */
+  WORD  type;          /* Chunk type: 0xF1FB */
+  WORD  segments;      /* Number of SEGMENT chunks that follow */
+} SEGMENT_TABLE;</pre></div> 
+<p>If a segment table is present, it overrules the values in the
+<a href="#FLICHEADER">header</a> (number of frames, offsets to the first and
+second frames).
+<p>The segment table contains a series of <b>SEGMENT</b> chunks, one for
+every segment in the FLIC file. As of EGI version 4.0, the segment table also
+stores <b>LABELEX</b> chunks that hold symbolic names for the segments. The
+numeric value of each <b>LABELEX</b> chunk must match the (numeric) label of
+exactly one of the <b>SEGMENT</b> chunks. The name of the <b>LABELEX</b> chunk
+then gives the symbolic name for the segment.
+<!-- SEGMENT / EGI 1+ -->
+<a name="SEGMENT"></a>
+<div class="titleBar"><div style="clear:both;float:right;text-align:right;font-size:83%;">EGI 1+</div>SEGMENT</div>
+<div class="codeBlock"><pre>
+typedef struct {
+  DWORD size;          /* Size of this chunk (always 32 bytes) */
+  WORD  type;          /* Subchunk type: 34 */
+  WORD  label;         /* Label of the segment (user value) */
+  BYTE  reserved1[2];  /* Reserved, set to zero */
+  WORD  cont_image;    /* "continued from" image id */
+  WORD  last_image;    /* id of the last image of this segment */
+  WORD  flags;         /* Flags */
+  WORD  frames;        /* Number of frames in the segment */
+  DWORD oframe1;       /* File offset to frame 1 of the segment */
+  DWORD oframe2;       /* File offset to frame 2 */
+  WORD  next_segment;  /* segment number of segment to proceed with */
+  WORD  repeat;        /* repeat count (0=indefinitely) */
+  BYTE  reserved2[2];  /* Reserved, set to zero */
+} SEGMENT;</pre></div> 
+<p>The <b>flags</b> field contains four bit flags:
+<div class="codeBlock"><pre>    Bit    Meaning</pre></div> 
+<div class="codeBlock"><pre>     0     the segment contains a ring frame
+     1     the first frame contains a full image
+     2     the "next_segment" field of the structure is valid
+     3     audio must be synchronized with the animation</pre></div> 
+<p>If bit 1 is set, the first frame contains either a full image, or a delta
+image plus a key image. In other words, bit 1 indicates whether the segment
+is a "launch point". See the EGI compiler instruction <b>launch_point</b>
+for more details.
+<p>The <b>frames</b> field does not include the ring frame (if a ring
+frame is present).
+<p>In a FLIC file has multiple segments and some of the segments
+are "continued" from other segments (see the compiler instruction
+<b>continued_from</b>), a frame may contain both a full image (the key
+image) and a delta image. The EGI player uses the <b>cont_image</b> and
+<b>last_image</b> fields to determine whether it can use the delta image
+(whose decoding is usually quicker than a full image), or whether it must
+decode the full image instead.
+<p>When creating the FLIC file, the EGI compiler assigns each
+picture a unique number. It stores the number of the last image in a segment
+in the <b>last_image</b> field of the <b>SEGMENT</b> structure.
+When you add a <b>continued_from</b> instruction to the segment, the
+compiler copies the <b>last_image</b> field of the segment that was
+specified in the <b>continued_from</b> instruction to the
+<b>cont_image</b> field of the current segment. The compiler then
+proceeds to create a delta image given the first image of the current segment
+and the last image of the "continued from" segment. A segment that is not
+continued from another segment has a value of <b>0xFFFF</b> in the
+<b>cont_image</b> field.
+<p>The EGI player goes the opposite route. Assuming that the player just
+displayed the last frame of a segment, and at that moment you switch to
+another segment: if the <b>last_image</b> field of the current segment
+is the same as the <b>cont_image</b> of the next field, the player
+decodes the delta image of the new segment. Otherwise it decodes the key
+image.
+<!-- HUFFMAN_TABLE / EGI 1+ -->
+<a name="HUFFMAN_TABLE"></a>
+<div class="titleBar"><div style="clear:both;float:right;text-align:right;font-size:83%;">EGI 1+</div>HUFFMAN_TABLE</div>
+<div class="codeBlock"><pre>
+typedef struct {
+  DWORD size;          /* Size of this chunk */
+  WORD  type;          /* Chunk type: 0xF1FC */
+  WORD  codelength;    /* Maximum length of the Huffman codes */
+  WORD  numcodes;      /* The number of codes */
+  BYTE  reserved[6];   /* Must be set to zero */
+  /* The following three fields are repeated "numcodes" times */
+  WORD  code;          /* Huffman code */
+  BYTE  length;        /* Length of the Huffman code */
+  BYTE  value;         /* Byte value represented by the Huffman code */
+} HUFFMAN_TABLE;</pre></div> 
+<p>See the paper <a href="compress.htm">"EGI compression schemes"</a> for
+information on the Huffman compression algorithm. This chunk is only present
+if bit 3 of the <b>ext_flags</b> of the
+<a href="#FLICHEADER">FLIC file header</a> is set.
+<!-- FRAME_TYPE / all -->
+<a name="FRAME_TYPE"></a>
+<div class="titleBar"><div style="clear:both;float:right;text-align:right;font-size:83%;">all</div>FRAME_TYPE</div>
+<p><strong>This chunk is defined by Autodesk Animator, but Pro Motion and EGI extend it.</strong></p>
+<div class="codeBlock"><pre>
+typedef struct {
+  DWORD size;          /* Size of the chunk, including subchunks */
+  WORD  type;          /* Chunk type: 0xF1FA */
+  WORD  chunks;        /* Number of subchunks */
+  WORD  delay;         /* Delay in milliseconds */
+  short reserved;      /* Always zero */
+  ushort width;        /* Frame width override (if non-zero) */
+  ushort height;       /* Frame height override (if non-zero) */
+} FRAME_TYPE;</pre></div> 
+<p>The <b>delay</b> value overrules the <b>speed</b> field in the
+<a href="#FLICHEADER">FLIC header</a>; a value of zero indicates
+that the normal speed
+(from the FLIC header) applies. The <b>delay</b> field is
+an extension to the FLIC format, introduced by
+<a href="https://web.archive.org/web/20080115011355/http://www.cosmigo.com/promotion/">Cosmigo's Pro&nbsp;Motion</a>.
+<p>The frame size override (width and height) is an EGI extension (starting with
+EGI 4.0). It is currently only used for overlays.
+<!-- COLOR_256 and COLOR_64 / all -->
+<a name="COLOR_xx"></a>
+<div class="titleBar"><div style="clear:both;float:right;text-align:right;font-size:83%;">all</div>COLOR_256 &amp; COLOR_64</div>
+<p>The two subchunks with types 4 and 11 are identical, except that the range
+of the RGB values is 0-63 for <b>COLOR_64</b> (type 11) and 0-255 for
+<b>COLOR_256</b> (type 4). The 0-63 range of <b>COLOR_64</b> reflects the
+6-bit "CLUT" hardware for the original VGA card (sometimes referred to as the
+18-bit DAC, where the 18-bits are divided into 3 channels).
+<p>The data in the chunk is organized in packets. The first word following the
+chunk header is the number of packets in the chunk. Each packet consists of a
+1-byte skip count, a 1-byte copy count and a series of 3-byte RGB values
+(the "copy count" gives the number of RGB triplets). If the copy count is
+zero, there are 256 RGB triplets in the packet. For example, the data to
+change colours 2, 7, 8 and 9 would appear as:
+<div class="codeBlock"><pre>
+    2                           /* two packets */
+    2,1,r,g,b                   /* skip 2 entries, change 1 entry */
+    4,3,r,g,b,r,g,b,r,g,b       /* skip 4, change 3 */
+</pre></div> 
+<p>The FLIC file format assumes that when the palette changes, the entire frame
+is refreshed. Note that in a 256-colour FLIC file, pixel values are
+palette-indices. When the colour definition of a palette entry changes, all
+pixels with the corresponding palette entry must take over the new colour,
+regardless of whether they are refreshed in a <a href="#DELTA_FLI">DELTA_FLI</a>
+or a <a href="#DELTA_FLC">DELTA_FLC</a> chunk. Note that if your video hardware
+is physically in a palette mode (256-colours), this global colour refreshing
+is automatic. At the time that the FLIC format was developed, 256-colour palette-mode
+video cards were state-of-the-art for desktop PCs.
+<!-- BLACK / all -->
+<a name="BLACK"></a>
+<div class="titleBar"><div style="clear:both;float:right;text-align:right;font-size:83%;">all</div>BLACK</div>
+<p>All pixels in the frame have colour 0. This chunk has no data following the
+chunk header.
+<!-- FLI_COPY / all -->
+<a name="FLI_COPY"></a>
+<div class="titleBar"><div style="clear:both;float:right;text-align:right;font-size:83%;">all</div>FLI_COPY</div>
+<p>The data that follows the chunk header are the pixels of an uncompressed
+image of the frame. The number of pixels are exactly width&times;height
+of the frame. The first pixel is for the upper left corner of the frame.
+<p>Note that FLX files (15-bpp) use 2 bytes per pixel.
+<!-- BYTE_RUN (FLI_BRUN) / all -->
+<a name="BYTE_RUN"></a>
+<div class="titleBar"><div style="clear:both;float:right;text-align:right;font-size:83%;">all</div>BYTE_RUN (FLI_BRUN)</div>
+<p>The data following the chunk header is a full image that is compressed with
+byte oriented RLE. The first image of a segment and key frames are usually
+stored in a <b>BYTE_RUN</b> chunk.
+<p>Each line of the image is compressed separately, starting from the top of
+the image. The first byte of each line is the packet count. It is a holdover
+from the FLI format and it should be ignored, because it is now
+possible to have more than 255 packets on a line (for FLC files).
+Instead, the width of the frame image now is the criterion for decoding:
+continue decompressing until the number of uncompressed pixels becomes equal
+to the image width. However, some players still rely on this pack count, so
+FLIC compilers should still generate them and only set it to zero
+when the packet count indeed does exceed 255.
+<p>Each RLE packet consists of a count byte and one or more data bytes. If the
+count byte is negative, its absolute value is the number of data bytes
+(following the count byte) to copy to the image: a literal run. If the count
+byte is positive, the single data byte that follows must be replicated in the
+image "count" times: a replicate run.
+<!-- DELTA_FLI (FLI_LC) / all -->
+<a name="DELTA_FLI"></a>
+<div class="titleBar"><div style="clear:both;float:right;text-align:right;font-size:83%;">all</div>DELTA_FLI (FLI_LC)</div>
+<p>This chunk is used for FLI type files; the newer
+FLC format replaces this chunk with <b>DELTA_FLC</b> (see
+below). The chunk contains the differences (the "delta") between the current
+frame and the previous frame.
+<p>The first 16-bit word behind the chunk header is the line number (starting
+from the top of the image) for the first line in the image that differs from
+the previous frame. In other words, it is a line skip count. The second word
+is the number of lines in the chunk. The data for the lines themselves follow
+these two words.
+<p>Each line starts with a one-byte packet count for the line. Unlike the
+<b>BYTE_RUN</b> chunk, this value is significant because the "delta"
+need not to store the complete width of the frame image. The packets
+themselves follow the packet count. Each packet consists of a column skip
+count, an RLE count byte and zero or more data bytes. The column skip count is
+a one-byte value; it holds
+the number of pixels to skip (the number of pixels that did not change between
+the current frame and the previous frame) from the current position in the
+line. It can have a value of zero. The RLE count byte and the data bytes are
+similar to the <b>BYTE_RUN</b> encoding: if the count is positive, that
+number of bytes is to be copied from the data to the image (literal run); if
+the count is negative, its absolute value is the replication count of the one
+data byte that follows (replicate run).
+<p>Two pitfalls:
+<ul compact>
+<li> The negative/positive meaning of the RLE count byte is reversed from
+that of the <b>BYTE_RUN</b> encoding.
+<li> The RLE count byte can be zero. This occurs when the number of pixels to
+skip is more than 255. In this case, skip count is split over two packets.
+The first of these contains a skip count of 255, a RLE count of 0, and no
+data following the RLE count. The skip count of the second packet holds the
+remaining number of pixels to skip.
+</ul>
+<p>Also note that the "FLIC file format" document that originates from Autodesk
+mentions an extra byte that prefixes each line. This byte, the "starting x
+position of the data on a line", does not exist.
+<!-- DELTA_FLC (FLI_SS2) / all -->
+<a name="DELTA_FLC"></a>
+<div class="titleBar"><div style="clear:both;float:right;text-align:right;font-size:83%;">all</div>DELTA_FLC (FLI_SS2)</div>
+<p>This chunk is similar to the <b>DELTA_FLI</b> chunk, but it
+compresses the delta image differently. The data following the chunk header is
+organized into lines and each line is organized into packets. Every line
+starts with one or more word-sized "opcodes".
+<p>The first word following the chunk header is the number of lines in the
+chunk. This count does not include "skipped" lines. Each line starts with one
+or more opcodes. One of the opcodes (the last) is the packet count. The
+highest two bits of the opcode word give its type:
+<div class="codeBlock"><pre>  Bit 15   Bit 14   Description</pre></div> 
+<div class="codeBlock"><pre>    0        0      The opcode is the packet count for the line, it can be zero
+    0        1      Undefined
+    1        0      Store the opcode's low byte (bits 0-7) in the last pixel of the line
+    1        1      The absolute value of the opcode is the line skip count</pre></div> 
+<p>The RLE compression of <b>DELTA_FLC</b> is similar to that of
+<b>DELTA_FLI</b>, but it is word oriented. The first byte of each packet
+is the column skip count; the second byte is the RLE count byte. Zero or more
+data <em>words</em> follow the RLE count byte. If the count is positive, that
+number of words of data is copied to the image; if the count is negative, one
+data word follows and the absolute value of the count tells how many times
+that word must be replicated in the image.
+<p>The two pitfalls from the <b>DELTA_FLI</b> chunk apply here too (see
+above). Additionally:
+<ul compact>
+<li> The packet count for a line can be zero. This occurs when the frame image
+has an odd width and only the last pixel of a line changes. In that case,
+there is a "last byte" opcode for the line, but no further packets.
+<li> For "Autodesk FLX" files, the skip count of each packet should be
+considered the number of "pixels" to skip, not bytes. For "Tempra FLX" files,
+the skip count is the number of bytes (and it therefore should always be an
+even value).
+</ul>
+<!-- PSTAMP / all -->
+<a name="PSTAMP"></a>
+<div class="titleBar"><div style="clear:both;float:right;text-align:right;font-size:83%;">all</div>PSTAMP</div>
+<div class="codeBlock"><pre>
+typedef struct {
+  DWORD size;           /* Size of this chunk */
+  WORD  type;           /* Chunk type: 18 */
+  WORD  height;         /* Height of the postage stamp */
+  WORD  width;          /* Width of the postage stamp */
+  WORD  xlate;          /* Colour translation, always 1 */
+} PSTAMP;</pre></div> 
+<p>A "postage stamp" is a reduced image of the first frame of an animation. A
+postage stamp created by Autodesk Animator Pro has the preferred size of
+100*63 (the actual size can vary) and uses a universal palette.
+<p>The palette is an RGB cube with 6 levels of each red, green and blue. This
+totals in 216 colours. An arbitrary RGB value (where each component is in the
+range of 0-255) is mapped into the six-cube space using:<br>
+<div align="center">((6*red)/256) * 36 + ((6*green)/256) * 6 + (6*blue)/256</div>
+<p>The <b>PSTAMP</b> chunk embeds another chunk. This is usually a
+<b>BYTE_RUN</b> chunk or a <b>FLI_COPY</b> chunk (for compressed
+and uncompressed images respectively). If the type of the embedded chunk is 18
+again (the type of <b>PSTAMP</b> is also 18), that chunk contains a
+256-byte colour translation table. The translation table maps every palette
+index of the first frame to the universal six-cube colour space. To display
+the postage stamp, a program decodes the image of the first frame and maps
+every pixel of that image to the six-cube colour palette (using the
+translation table).
+<!-- DTA_BRUN, DTA_COPY and DTA_LC / DTA, EGI 3+ -->
+<a name="DTA_xx"></a>
+<div class="titleBar"><div style="clear:both;float:right;text-align:right;font-size:83%;">DTA, EGI 3+</div>DTA_BRUN, DTA_COPY and DTA_LC</div>
+<p>These chunks are generated by the DTA program by Dave K. Mason for
+FLIC files with 15-bit, 16-bit or 24-bit colour depth, and by EGI
+starting with version 3.0. FLIC files with these formats usually
+have a .FLH or a .FLT extension. EGI supports only
+the 16-bit variety of these chunks.
+<p>In 24-bit FLIC files, pixels are made up of three bytes in the
+order B,G,R. In 16-bit files the colour values are packed into words (two-byte
+units) in "<b>rrrrrggg&nbsp;gggbbbbb</b>" format. 15-Bit
+FLIC files have pixels packed into the format
+"<b>0rrrrrgg&nbsp;gggbbbbb</b>". (The "blue" bits are in the lowest
+bit positions of each word.)
+<p>The <b>DTA_BRUN</b> chunk is numbered 25 (instead of 15 for a standard
+<b>BYTE_RUN</b>). The Repeat/Copy value is still a byte, but it refers to a
+number of pixels to copy or repeat, not bytes.
+<p>The <b>DTA_LC</b> chunk is numbered 27. Internally it is like chunk
+type 7 (<b>DELTA_FLC</b>). It starts with a number-of-lines value. For
+each line, the packet is a signed word value. If it is negative then it
+represents a lines-to-skip value and it does not count toward the
+number-of-lines. Each non-negative packet begins with a skip counter. This is
+still a byte, but it represents a number of pixels to skip, not bytes. Next
+comes a repeat/copy packet. It represents a number of pixels to copy or skip,
+not words. (Though in a 16-bit FLIC file, the pixels are words.)
+<p>The copy chunk is numbered 26, although the standard "copy" chunk
+type 16 (<b>FLI_COPY</b>) would do equally well: there is no decoding for
+copy chunks.
+<!-- LABEL, LABELEX / EGI 1+, EGI 4 -->
+<a name="LABEL"></a>
+<div class="titleBar"><div style="clear:both;float:right;text-align:right;font-size:83%;">EGI 1+, EGI 4</div>LABEL, LABELEX</div>
+<div class="codeBlock"><pre>
+typedef struct {
+  DWORD size;           /* Size of this chunk (usually 10) */
+  WORD  type;           /* Chunk type: 31 */
+  WORD  label           /* Label of the frame (user value) */
+  BYTE  reserved[2]     /* Reserved, set to zero */
+} LABEL;
+
+typedef struct {
+  DWORD size;           /* Size of this chunk */
+  WORD  type;           /* Chunk type: 41 */
+  WORD  label           /* Label of the frame (user value) */
+  BYTE  reserved[2]     /* Reserved, set to zero */
+  BYTE  name[<i>variable</i>]  /* symbolic name of the label */
+} LABELEX;</pre></div> 
+<p>The EGI API function <b>FlicPlay()</b> sends a notification message if
+it encounters a label subchunk in a frame. The message is sent (using
+either the Microsoft Windows function <b>SendMessage()</b> or using a direct
+callback) after decoding (and displaying) the frame. If the FLIC file has an
+<a href="#SCRIPT_CHUNK">embedded script</a>, a label invokes the public function
+<b>@FlicLabel()</b> in the script.
+<p>A bug in early versions of the EGI player caused it to assume that <b>LABEL</b>
+chunks would <em>always</em> be exactly 10 bytes. Extending the label chunk
+with additional could therefore cause compatibility problems with those early
+players. Therefore, EGI defined a new, separate chunk for extended labels.
+<p>EGI versions as of version 4.0 store the symbolic name of a label (if any)
+in the chunk. The length of the name is the length of the chunk minus the fixed
+size of the chunk and minus any padding. The fixed size of the chunk is 10
+bytes. The chunk is padded to an even size in bytes with zero bytes. So a label
+name like "eat" is stored as four characters 'e', 'a', 't' and '\0'. A label
+name like "walk" is stored in four characters, the string is <em>not</em>
+zero-terminated.
+<!-- KEY_IMAGE / EGI 1+ -->
+<a name="KEY_IMAGE"></a>
+<div class="titleBar"><div style="clear:both;float:right;text-align:right;font-size:83%;">EGI 1+</div>KEY_IMAGE</div>
+<p>For standard 256-colour FLIC files, the <b>KEY_IMAGE</b> chunk is the
+same as <b>BYTE_RUN</b>, but a frame that has a <b>KEY_IMAGE</b>
+chunk also contains a <b>DELTA_FLC</b> from a previous segment. A player
+can decide (based on the transition it makes from segment to segment) whether
+to decode the <b>KEY_IMAGE</b> and skip the <b>DELTA_FLC</b>, or
+to decode the <b>DELTA_FLC</b> and skip the <b>KEY_IMAGE</b>. See
+the <b>SEGMENT</b> chunk for more information.
+<p>For 16-bit FLIC files, the <b>KEY_IMAGE</b> chunk has the same
+encoding as <b>DTA_BRUN</b>. Similarly to the 256-colour FLIC files,
+the <b>KEY_IMAGE</b> chunk only appears in combination with a
+<b>DTA_LC</b> chunk.
+<!-- KEY_PAL / EGI 1+ -->
+<a name="KEY_PAL"></a>
+<div class="titleBar"><div style="clear:both;float:right;text-align:right;font-size:83%;">EGI 1+</div>KEY_PAL</div>
+<p>The same as <b>COLOR_256</b>, but it is only present for key images.
+<!-- BMP_MASK and MLEV_MASK / EGI 1+ and EGI 2+ -->
+<a name="BMP_MASK"></a>
+<div class="titleBar"><div style="clear:both;float:right;text-align:right;font-size:83%;">EGI 1+ &amp; EGI 2+</div>BMP_MASK &amp; MLEV_MASK</div>
+<p><strong>The chunk <b>MLEV_MASK</b> is defined as of EGI version 2.0;
+the chunk <b>BMP_MASK</b> exists since EGI 1.0.</strong>
+<p>The chunk starts (right after the chunk header) with four 16-bit words that
+give the bounding box of the mask. You can use this bounding box to speed up
+drawing operations, because you do not have to draw anything outside this box
+(all pixels are transparent outside the bounding box). The values are stored
+in the following order: <b>x y width height</b>.
+<p>The mask data starts behind the bounding box. Each line is encoded
+separately. A line starts with a "line skip count", which indicates how many
+lines remain unchanged from the previous mask. It is a two-byte value. It is
+zero for every line in a full mask.
+<p>The bitmap data (for the mask bitmap) comes after the line skip count. The
+bitmap data is compressed with the same RLE encoding as the
+<b>BYTE_RUN</b> image. This means that if the first (type) byte is
+positive, it is followed by a single pixel that must be replicated; if it is
+negative, it is followed by a series of bytes that must be copied literally.
+In contrast to the <b>BYTE_RUN</b> compression, no "packet count" byte
+is stored at the beginning of a scan line. Each scan line of the mask is
+compressed individually. Huffman and BWT compression do not apply to masks.
+<p>The data of a bitmap mask (after compression) is a 1 bit per pixel (8
+pixels per byte) bitmap with the same size as the frame image. Each bit that
+is set ("1") represents a transparent pixel in the frame image. Each bit that
+is cleared ("0") represents an opaque pixel.
+<p>A multilevel mask is an 8 bits per pixel bitmap (with the same size as the
+frame image). Each byte in the mask represents the transparency level of the
+corresponding pixel in the frame image. A value of 255 is fully transparent,
+and 0 is fully opaque. In EGI version 2.x, you could actually use only two
+levels (0 and 255); as of EGI version 3.0, you can define up to 15 additional
+transparency levels.
+<p>Note that you can only specify the number of transparency levels; the
+opacity value of each level of the multilevel masks is not stored. The FLIC
+file format does not indicate the purpose the additional mask levels either.
+The number of transparency levels is in the <b>transp_num</b> field in
+the <a href="#FLICHEADER">FLIC file header</a> (EGI versions prior
+to 3.0 set this field to zero).
+The multilevel transparency masks were designed to be used with
+<a href="software_anisprite.htm">AniSprite</a>, which allows you to set the
+opacity for each level (and lets you decide whether the additional levels are
+for "luma" masks or for "alpha" masks); please look up the AniSprite
+documentation for more information.
+<p>A frame can contain both a full image and a delta image. This occurs, for
+example when a segment in a FLIC file is both
+"<b>continued_from</b>" another segment and a launch point, or
+when the "<b>key_frames</b>" instruction is used. The mask for
+a frame that contains both a delta image and a full image is always a
+<em>full</em> mask.
+<p>See also <a href="#RGN_MASK">the <b>RGN_MASK</b> chunk</a>.
+<!-- REGION / EGI 1+ -->
+<a name="REGION"></a>
+<div class="titleBar"><div style="clear:both;float:right;text-align:right;font-size:83%;">EGI 1+</div>REGION</div>
+<div class="codeBlock"><pre>
+typedef struct {
+  DWORD size;           /* Size of this chunk */
+  WORD  type;           /* Chunk type: 37 */
+  WORD  number;         /* Number of rectangles that form the region */
+  /* The following four fields are repeated "number" times */
+  WORD  x;              /* Pixel coordinates of a rectangle */
+  WORD  y;
+  WORD  width;          /* Size of the region in pixels */
+  WORD  height;
+} REGION;</pre></div> 
+<p>The EGI compiler stores the region of frame differences (see the
+<b>dif_region</b> instruction of the compiler's script language) by
+means of a grid. In the current release, the grid is composed of square tiles
+of 16*16 pixels. When a single pixel in a tile changes, all 256 pixels in that
+tile are flagged as "modified".
+<p>Two neighbouring tiles that are both flagged as "modified" are combined into
+a single new tile. The edges of the resulting rectangular tiles are always
+snapped to the grid points. Therefore, each rectangle in a region of frame
+differences needs not to enclose the object at pixel precision. However, no
+rectangle will exceed the bounding box of all differences between two frames.
+<p>The purpose of a coarse grid is to avoid a large amount of very small
+areas. The cost of the overhead for every call to the <b>BitBlt()</b>
+function for all these areas might be higher than the cost of blitting several
+pixels too many.
+<p>As of EGI version 2.0, the maximum number of tiles in a region is in the
+field <b>max_regions</b> in the <a href="#FLICHEADER">FLIC
+file header</a>.
+<!-- WAVE / EGI 2+ -->
+<a name="WAVE"></a>
+<div class="titleBar"><div style="clear:both;float:right;text-align:right;font-size:83%;">EGI 2+</div>WAVE</div>
+<div class="codeBlock"><pre>
+typedef struct {
+  DWORD size;          /* size of this chunk */
+  WORD  type;          /* Chunk type: 38 */
+  WORD  flags;
+  WORD  samplefreq;    /* sample frequency */
+  DWORD overlap;       /* sample overlap (in bytes) */
+  BYTE  reserved[6];   /* always zero */
+} WAVE;</pre></div> 
+<p>The <b>flags</b> value is a bit field.
+<div class="codeBlock"><pre>  Bit  Description</pre></div> 
+<div class="codeBlock"><pre>   0   Sample size is 16-bit (otherwise 8-bit)
+   1   Format is signed PCM (otherwise unsigned PCM)
+   2   Audio is stereo
+   3   First block of the audio stream (open/reset sound card/driver)
+   4   Last block of the audio stream (close sound card/driver)</pre></div> 
+<p>The digitized audio data follows the chunk. The format depends on the
+various flags. If audio is 16-bit, there are two bytes per sample, in Little
+Endian (Intel format). In <em>unsigned</em> PCM, the "silence" level is 128
+for 8-bit samples and 32768 for 16-bit samples. For stereo audio the samples
+for the left and right channels are interleaved; the sample for the left
+channel precedes the sample for the right channel.
+<p>Currently, EGI only supports 8-bit unsigned PCM or 16-bit signed PCM. These
+are the same formats as used in the .WAV and the .VOC
+file formats.
+<p>An audio stream is often be stored in a single block. The audio starts at
+the frame in which the block occurs, and it continues to "sound" during the
+displaying of the next frames. Audio and animation are not necessarily
+synchronized. For these single block audio streams, both bits 3 and 4 in the
+<b>flags</b> field are set, and <b>overlap</b> is always zero.
+<p>The audio stream can also be cut in various blocks. The first block contains
+enough samples to get from the current frame to the first key frame. The key
+frame contains another audio block with enough samples to get to the next key
+frame, etc. Here, the bits 3 and 4 of the <b>flags</b> field help to
+glue the blocks together to a sequential audio stream. Audio and animation
+<em>should</em> be synchronized to play back correctly. (The EGI player
+synchronizes animation and sound by default if the sound is cut into blocks.)
+<p>To avoid gaps in the audio when synchronization is not perfect, each block
+contains more samples than strictly necessary. In the current implementation,
+EGI adds enough samples to go to one frame after each key frame. When sending
+a (next) block to the audio device, you should ignore the first
+<b>overlap</b> <strong>bytes</strong> from the audio data.
+<p>You can jump in the middle of an animation, and this way, you can also jump
+in the middle of a multiple block audio stream. In this case, to get a proper
+synchronization, ignore the <b>overlap</b> field for the first audio
+block that you encounter.
+<!-- USERSTRING / EGI 2+ -->
+<a name="USERSTRING"></a>
+<div class="titleBar"><div style="clear:both;float:right;text-align:right;font-size:83%;">EGI 2+</div>USERSTRING</div>
+<p>A zero-terminated ASCII string follows the chunk header. The <b>USERSTRING</b>
+chunk allows an application to store general-purpose strings (both for copyright
+information as for references to other files or data) in a frame.
+<!-- RGN_MASK / EGI 3.1+ -->
+<a name="RGN_MASK"></a>
+<div class="titleBar"><div style="clear:both;float:right;text-align:right;font-size:83%;">EGI 3.1+</div>RGN_MASK</div>
+<p>The chunk starts (right after the chunk header) with four 16-bit words that
+give the bounding box of the mask (this is similar to the BMP_MASK and
+RGN_MASK chunks). The values are stored in the following order:
+<b>x y width height</b>.
+<p>The mask data starts behind the bounding box and consists of a list of
+non-overlapping rectangles. This set of rectangles describes the opaque region
+of the frame. Each rectangle is composed of four 16-bit words, again in the order
+<b>x y width height</b>. The number of rectangles in the region can be
+determined from the size of the chunk.
+<p>There is no delta encoding for a region mask, except that if a <b>RGN_MASK</b>
+chunk is absent from a frame it should be considered equal to the region mask
+of the previous frame.
+<p>Note that the <a href="#REGION"><b>REGION</b> chunk</a> contains a
+coarse <em>region of changes</em> between two frames. The <b>RGN_MASK</b>
+chunk is a region of <em>opaque areas</em> of a single frame and it is precise
+at pixel level.
+<p>See also <a href="#BMP_MASK">the <b>BMP_MASK</b> and
+<b>MLEV_MASK</b> chunks</a>.
+<!-- SHIFT / EGI 4 -->
+<a name="SHIFT"></a>
+<div class="titleBar"><div style="clear:both;float:right;text-align:right;font-size:83%;">EGI 4</div>SHIFT</div>
+<p>Shift chunks are generated when the <b>frame_shift()</b> compression option
+is present in the EGI script. As noted in the manual, the frame shift
+compression is effective on animations where the background is panned or where
+objects move over a fixed background, and in particular objects that include
+transparency masks.
+<p>The shift chunks give pixel counts by which the scan lines in the current
+image must be shifted horizontally and/or vertically to better resemble the
+"next" image. There are separate shift chunks for the image and for the mask;
+only multilevel masks (<a href="#BMP_MASK">the <b>MLEV_MASK</b> chunk</a>) are
+applicable for frame shift compression. That is, if you have <a href="#RGN_MASK">region masks</a>,
+the <em>mask</em> cannot be frame-shifted, but the <em>image</em> in each frame
+can still benefit from frame shift compression.
+<p>The chunk header has the following format:
+<div class="codeBlock"><pre>
+typedef struct {
+  DWORD size;           /* size of this chunk */
+  WORD  type;           /* Chunk type: 42 */
+  BYTE  img_id;         /* image/mask identifier */
+  BYTE  flags;          /* flags, reserved */
+  WORD  prio_list;      /* size (in bytes) of the priority list */
+} FRAMESHIFT;</pre></div> 
+<p>The first after the fixed chunk header, <b>img_id</b> is zero if the frame
+shifts apply to the image and 2 if the frame shifts are for the (multilevel)
+mask. The following byte is for general purpose flags; it is currently always
+zero. The next 16-bit word, <b>prio_list</b> is the size (in bytes) of the
+"priority list", which is one of the three lists that follow the header.
+<p>Following the header are two lists with byte values and a third list with
+word values a variable-length encoding (technically, it is also a list of bytes).
+The first two lists have a length that is equal to the height of the frame, the
+length of the third list is in the header (described above). All three lists
+are compressed separately with the compression algorithm that is also used for
+<a href="#BYTE_RUN">the <b>BYTE_RUN</b> chunk</a>.
+<p>The first list gives the vertical shifts and the second list gives the
+horizontal shifts. Each value in either of these two lists is a signed 8-bit
+number and indicates a shift count. The third list gives the order in which the
+shifts should be applied. It is variable length because only those lines for
+which the order is important are listed.
+<p>See the paper <a href="compress.htm">"EGI compression schemes"</a> for details
+of the frame shift algorithm.
+<p>For animations that use frame shift compression, the maximum frame size is
+restricted to 16384 &times; 16384 pixels.
+<!-- PATHMAP / EGI 4 -->
+<a name="PATHMAP"></a>
+<div class="titleBar"><div style="clear:both;float:right;text-align:right;font-size:83%;">EGI 4</div>PATHMAP</div>
+<p>The "path map" is a planning table that can tell you how to go from one segment
+to any other segment, while using only "known to be good" transitions. A FLIC
+that has <a href="#SEGMENT">segments</a> has optional <b>cont_image</b> and
+<b>last_image</b> markers. When the <b>cont_image</b> marker of one segment
+matches the <b>last_image</b> marker of another segment, that indicates a fluent
+transition between the two. The path map forms a matrix of all such transitions
+so that the animation path from one segment to another segment is easy to look up.
+<p>The goal of the path map is to make "pose to pose" animation easier, especially
+when the next pose of the character is determined dynamically or interactively.
+When pursuing to go from one segment to another segment in a fluent manner,
+it may be necessary to go via one or more intermediate segments (transitions).
+The path map records the shortest fluent way to get from the "current" segment
+to any other segment.
+<p>The path map is a square matrix with a number of rows and columns that is equal
+to the number of segments. That is, the path map of an animation with 4 segments
+is a 4&times;4 matrix. Each entry in the path map is the segment segment number
+(a two-byte value)
+of the <em>next</em> segment to take, when using the current segment to index the
+matrix <em>column</em> and the desired "goal" segment to index the matrix <em>row</em>.
+When the value in a matrix cell is -1, no fluent transition is available: either
+there is no fluent path between the two segments, or you have already arrived at
+the goal segment.
+<p>As is apparent, one entry in the path map does not indicate a complete path, but
+only the <em>next step to take</em> to come closer to the goal segment. Once you
+arrive at that "next segment", you do another look-up and get a new "next step"
+that is closer to the desired goal segment (and so on). One row in the path map
+matrix <em>does</em> contain an entire path, by the way, but not in a sequential
+way. In fact, one row of the matrix contains <em>all</em> paths that lead to one
+destination segment.
+<div class="separatorBar"><img src="/web/20080115011355im_/http://www.compuphase.com/images/hbar_star.gif" alt="section separator" width="19" height="16"/></div>
+<h3>Frequent errors</h3>
+<p>Unfortunately, several utilities create FLIC files that do not
+completely comply with the standard. Most FLIC players attempt
+to detect and silently correct these errors. Below is a list of frequent errors
+in FLIC files.
+<ul>
+<li><strong>The colour depth is set to zero</strong>.
+The colour depth must usually be 8. DTA and EGI (starting with version 3.0)
+support FLIC files with a different colour depth and use a different "type"
+value in the FLIC file header. FLX files (15-bpp FLC files that use the same
+chunks as for 8-bpp FLC files) should have the value 16 in the header
+field for the colour depth, even though they are actually 15-bpp.
+<li><strong>The offsets to the first and second frames are zero in an FLC
+file</strong>.
+In fact, it appears that these are FLI files with a FLC header.
+<li><strong>The offset to the second frame is set to an incorrect value</strong>.
+I have seen FLIC files where the offset to the second frame was set to zero,
+to the offset to the first frame, to the offset to the ring frame, or to a
+seemingly random value.
+<li><strong>DELTA_FLC chunks are present in files with a FLI header</strong>.
+Since most players are combined FLI/FLC players, this is usually not a
+problem. However, a FLIC file with <b>DELTA_FLC</b> chunks <em>should</em>
+have a FLC header.
+<li><strong>Chunk sizes are not rounded to an even number of bytes</strong>.
+Only very few FLIC players have problems with frames with an odd number
+of bytes, but it goes against the "standard".
+<li><strong>The sizes of all sub-chunks in a frame chunk do not add together
+to the size in the frame chunk header</strong>. Sometimes the frame chunk
+appears to be padded with extra data behind the last frame. Sometimes the
+size a subchunk is incorrect (I have seen this with the <b>FLI_COPY</b>
+chunk).
+<li><strong>Garbage in reserved fields of a chunk or of the header</strong>.
+Reserved fields in a chunk should be set to zero. Otherwise, the chunks
+become difficult to extend. Players must do their best in estimating (or
+guessing) whether a field is a valid value for a chunk extension or whether
+it is garbage.
+<li><strong>DELTA_FLC chunks with a "line count" of zero</strong>.
+This is essentially an 8-byte chunk: 6 bytes for the chunk header and two
+bytes for the count of lines in the chunk. Since this count is zero, no lines
+with compressed data follows. Although this is (or should be) valid, the
+<b>AAPLAY</b> engine crashes when it encounters such blocks. Therefore,
+utilities should avoid creating these chunks.
+<li><strong>DELTA_FLI is not documented correctly</strong>.
+The document that originates from Autodesk, and which was published with small
+modifications in Dr. Dobb's Journal (see below), claims that: <br>
+<i>"Each line begins with two bytes. The first byte contains the starting
+x position of the data on the line, and the second byte the number of
+packets for the line."</i><br>
+However, each line starts with <em>only one</em> byte, which is the number of
+packets for the line.
+<li><strong>Using 0xF5FA as a "frame" chunk type</strong>. The frame chunk type
+should be <b>0xF1FA</b> (source Mike Melanson,
+<a href="https://web.archive.org/web/20080115011355/http://www.pcisys.net/~melanson/">http://www.pcisys.net/~melanson/</a>).
+The particular FLIC file that Mike Melanson referred me to was created by
+Discreet 3D Studio MAX. I expect that the alternate frame type records
+some implicit (unknown) extra information.
+</ul>
+<div class="separatorBar"><img src="/web/20080115011355im_/http://www.compuphase.com/images/hbar_star.gif" alt="section separator" width="19" height="16"/></div>
+<h3>References</h3>
+<dl>
+<dt><a name="KENT1"></a>
+Kent, J.; "The FLIC File format"; Dr. Dobb's Journal, March 1992 (Volume 18, issue 3).
+<dd><i>A description of the FLIC file format by the original creator of the
+Autodesk Animator software.</i>
+<dt><a name="COMPUPHASE"></a>
+<a href="compress.htm">"EGI compression schemes"</a>.
+<dd><i>An on-line paper with descriptions ans additional pointers to the
+extended compression schemes that EGI brings to the FLIC file format.</i>
+</dl>
+</div> <div id="footer"> <div class="left"> Copyright &copy; 2006, Thiadmer Riemersma, <a href="https://web.archive.org/web/20080115011355/http://www.compuphase.com/">ITB CompuPhase</a> </div> <br class="doNotDisplay doNotPrint"/> <div class="right"> <a rel="license" href="https://web.archive.org/web/20080115011355/http://creativecommons.org/licenses/by-sa/2.5/"><img alt="Creative Commons License" border="0" align="right" src="/web/20080115011355im_/http://www.compuphase.com/images/somerights20.png"/></a> <small>This work is licensed under a &nbsp; <br/> <a rel="license" href="https://web.archive.org/web/20080115011355/http://creativecommons.org/licenses/by-sa/2.5/">Creative Commons License</a> &nbsp;</small> </div> </div> </body> </html>
+<!--
+     FILE ARCHIVED ON 01:13:55 Jan 15, 2008 AND RETRIEVED FROM THE
+     INTERNET ARCHIVE ON 15:56:15 May 02, 2026.
+     JAVASCRIPT APPENDED BY WAYBACK MACHINE, COPYRIGHT INTERNET ARCHIVE.
+
+     ALL OTHER CONTENT MAY ALSO BE PROTECTED BY COPYRIGHT (17 U.S.C.
+     SECTION 108(a)(3)).
+-->
+<!--
+playback timings (ms):
+  captures_list: 0.648
+  exclusion.robots: 0.05
+  exclusion.robots.policy: 0.037
+  esindex: 0.011
+  cdx.remote: 20.16
+  LoadShardBlock: 105.19 (3)
+  PetaboxLoader3.datanode: 89.114 (4)
+  PetaboxLoader3.resolve: 47.103 (2)
+  load_resource: 102.14
+-->

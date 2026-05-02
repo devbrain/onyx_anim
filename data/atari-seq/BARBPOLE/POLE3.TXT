@@ -1,0 +1,41 @@
+                           The Barber Pole
+
+                     A CyberPainting by Timothy Early
+
+   This is a CyberPaint sequence file.  Use Animate3.prg to view.  Set
+for forward mode, buffering on, and a speed of 6-8, or whatever you
+prefer.
+
+   I created this animation using CAD 3D v.2.02, CyberControl, and
+CyberPaint.   The rotating barber pole was my inspiration to create
+a complete 3D barbershop.  This CyberPainting is the Barber Pole only.
+
+  Working my way through the CyberControl tutorial sections, I came across
+Tom Hudson's COILMAKE.CTL program.  I ran it a couple of times, making
+several spiral springs.  But what could I do with a spiral spring?
+
+  Using CyberControl, I cloned my last spring without moving it, and
+rotated the copy 180 degrees.  I set my colors so that one spring was
+red and the other white.  The endcaps were created with the spin tool,
+and colored yellow.
+
+  A simple CyberControl script rotated the pole through a complete
+rotation.  I shot the scene twice, once in Outlined Draft, and again
+in Final mode.  Looking at the resulting animations, I liked the caps
+from the 'draft' version, but the pole from the 'final' rendering.
+
+  CyberPaint was used to merge the outlined caps with the solid pole.
+Some minor cleaning up followed, and text added.  An ADO effect for
+my name was merged into the sequence.
+
+   This CyberPainting has been released for the enjoyment of all ST
+owners.  It may not be used for commercial purposes without my permission.
+Comments and critisism welcome.
+
+                                    Timothy Early
+
+                                      Compuserve: 73765,1173
+                                      GEnie:      T.EARLY
+                                      U.S. Mail:  14 Carpenter Rd.
+                                                  Bolton, CT  06043
+

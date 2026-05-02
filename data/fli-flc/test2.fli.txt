@@ -1,0 +1,164 @@
+playback of this file works only partially; some parts are skipped. aaplay
+plays it completely.
+
+
+MPlayer CVS-020221-01:34-2.95.4 (C) 2000-2002 Arpad Gereoffy (see DOCS!)
+
+CPU vendor name: AuthenticAMD  max cpuid level: 1
+CPU: Advanced Micro Devices Duron SF Spitfire (Type: 6, Stepping: 1)
+extended cpuid-level: 6
+CPUflags: Type: 6 MMX: 1 MMX2: 1 3DNow: 1 3DNow2: 1 SSE: 0 SSE2: 0
+Compiled for x86 CPU with features: MMX MMX2 3DNow 3DNowEx
+Reading /home/co/.mplayer/codecs.conf: 29 audio & 79 video codecs
+CommandLine: '-v' 'test2.fli'
+get_path('font/font.desc') -> '/home/co/.mplayer/font/font.desc'
+Font /home/co/.mplayer/font/font.desc loaded successfully! (495 chars)
+Setting up lirc support...
+LIRC init was successful.
+Linux RTC init: open: Device or resource busy
+Using usleep() timing
+Playing test2.fli
+Can't open IFO file: No such file or directory
+Can't open IDX file: No such file or directory
+Can't open SUB file: No such file or directory
+Not an URL!
+File size is 596312 bytes
+CACHE_PRE_INIT: 0 [0] 0  pre:0  eof:0  
+Cache fill:  0.00% (0 bytes)    Checking for YUV4MPEG2
+ASF_check: not ASF guid!
+Checking for NuppelVideo
+Checking for MOV
+Checking for VIVO
+header block 1 size: 25
+Checking for REAL
+Detected FLI file format!
+==> Found video stream: 0
+[V] filefmt:10  fourcc:0x43494C46  size:320x200  fps:23.00  ftime:=0.0435
+Detected video codec: [fli] drv:12 prio:0 (Autodesk FLI/FLC Animation)
+AutoQ: setting quality to 0
+Movie-Aspect is undefined - no prescaling applied.
+VO: [sdl] 320x200 => 320x200 BGR 32-bit fs vm 
+VO: Description: SDL YUV/RGB/BGR renderer (SDL v1.1.7+ only!)
+VO: Author: Ryan C. Gordon <icculus@lokigames.com>, Felix Buenemann <atmosfear@users.sourceforge.net>
+video_out->init(320x200->320x200,flags=3,'MPlayer',0x42475220)
+SDL: Using 0x42475220 (BGR32) image format
+SDL: deactivating XScreensaver/DPMS
+SDL: X11 Resolution 1152x864
+SDL: Using driver: x11
+SDL: using hardware-surface
+SDL: setting zoomed fullscreen without modeswitching
+SDL: Info - please use -vm or -zoom to switch to best resolution.
+SDL: using depth/colorspace conversion, this will slow things down (32bpp -> 16bpp).
+INFO: Video OUT driver init OK!
+Audio: no sound!!!
+Freeing 0 unused audio chunks
+Start playing...
+mp_image: allocated 256000 bytes for 320x200x32 [0x42475220] image
+Using MMX (with tiny bit MMX2) Optimized OnScreenDisplay
+V:   0.0    1   0%  0%  0.0% 0 0 28%V:   0.0    2   0%  0%  0.0% 0 0 27%V:   0.1    3   0%  0%  0.0% 0 0 27%V:   0.1    4   0%  0%  0.0% 0 0 27%V:   0.2    5   0%  0%  0.0% 0 0 27%V:   0.2    6   0%  0%  0.0% 0 0 26%V:   0.3    7   0%  0%  0.0% 0 0 26%V:   0.3    8   0%  0%  0.0% 0 0 26%V:   0.3    9   0%  0%  0.0% 0 0 25%FLI: Unrecognized chunk type: 11264
+  warning: processed FLI chunk where encoded size = 6286
+  and final chunk ptr = 90
+V:   0.4   10   0%  0%  0.0% 0 0 25%FLI: Unrecognized chunk type: 9472
+  warning: processed FLI chunk where encoded size = 6295
+  and final chunk ptr = 90
+V:   0.4   11   0%  0%  0.0% 0 0 25%FLI: Unrecognized chunk type: 7936
+  warning: processed FLI chunk where encoded size = 6222
+  and final chunk ptr = 90
+V:   0.5   12   6%  7%  0.0% 0 0 25%FLI: Unrecognized chunk type: 6400
+  warning: processed FLI chunk where encoded size = 6449
+  and final chunk ptr = 90
+V:   0.5   13   6%  7%  0.0% 0 0 24%FLI: Unrecognized chunk type: 5376
+  warning: processed FLI chunk where encoded size = 6493
+  and final chunk ptr = 90
+V:   0.6   14   6%  7%  0.0% 0 0 24%FLI: Unrecognized chunk type: 4096
+  warning: processed FLI chunk where encoded size = 6743
+  and final chunk ptr = 90
+V:   0.6   15   6%  7%  0.0% 0 0 24%FLI: Unrecognized chunk type: 3840
+  warning: processed FLI chunk where encoded size = 6973
+  and final chunk ptr = 90
+V:   0.7   16   6%  7%  0.0% 0 0 23%FLI: Unrecognized chunk type: 3584
+  warning: processed FLI chunk where encoded size = 7237
+  and final chunk ptr = 90
+V:   0.7   17   6%  7%  0.0% 0 0 23%FLI: Unrecognized chunk type: 3584
+  warning: processed FLI chunk where encoded size = 7323
+  and final chunk ptr = 90
+V:   0.7   18   6%  7%  0.0% 0 0 23%FLI: Unrecognized chunk type: 3840
+  warning: processed FLI chunk where encoded size = 7332
+  and final chunk ptr = 90
+V:   0.8   19   6%  7%  0.0% 0 0 22%FLI: Unrecognized chunk type: 3840
+  warning: processed FLI chunk where encoded size = 7482
+  and final chunk ptr = 90
+V:   0.8   20   6%  7%  0.0% 0 0 22%FLI: Unrecognized chunk type: 4864
+  warning: processed FLI chunk where encoded size = 7395
+  and final chunk ptr = 90
+V:   0.9   21   6%  7%  0.0% 0 0 21%FLI: Unrecognized chunk type: 5888
+  warning: processed FLI chunk where encoded size = 7637
+  and final chunk ptr = 90
+V:   0.9   22   6%  7%  0.0% 0 0 21%FLI: Unrecognized chunk type: 7168
+  warning: processed FLI chunk where encoded size = 7900
+  and final chunk ptr = 90
+V:   1.0   23   6%  7%  0.0% 0 0 21%FLI: Unrecognized chunk type: 8704
+  warning: processed FLI chunk where encoded size = 8132
+  and final chunk ptr = 90
+V:   1.0   24   6%  7%  0.0% 0 0 20%FLI: Unrecognized chunk type: 10240
+  warning: processed FLI chunk where encoded size = 8597
+  and final chunk ptr = 90
+V:   1.0   25   6%  7%  0.0% 0 0 20%V:   1.1   26   6%  7%  0.0% 0 0 20%V:   1.1   27   6%  7%  0.0% 0 0 19%V:   1.2   28   6%  7%  0.0% 0 0 19%V:   1.2   29   6%  7%  0.0% 0 0 18%V:   1.3   30   6%  7%  0.0% 0 0 18%V:   1.3   31   6%  7%  0.0% 0 0 17%V:   1.3   32   6%  7%  0.0% 0 0 17%V:   1.4   33   6%  7%  0.0% 0 0 16%V:   1.4   34   6%  7%  0.0% 0 0 16%V:   1.5   35   6%  7%  0.0% 0 0 15%V:   1.5   36   6%  7%  0.0% 0 0 15%V:   1.6   37   6%  7%  0.0% 0 0 14%V:   1.6   38   7%  7%  0.0% 0 0 13%V:   1.7   39   7%  7%  0.0% 0 0 13%V:   1.7   40   7%  7%  0.0% 0 0 12%V:   1.7   41   7%  7%  0.0% 0 0 12%V:   1.8   42   7%  7%  0.0% 0 0 11%V:   1.8   43   7%  7%  0.0% 0 0 11%V:   1.9   44   7%  7%  0.0% 0 0 10%V:   1.9   45   7%  7%  0.0% 0 0 10%V:   2.0   46   7%  7%  0.0% 0 0 9%V:   2.0   47   7%  7%  0.0% 0 0 9%V:   2.0   48   7%  7%  0.0% 0 0 9%V:   2.1   49   7%  7%  0.0% 0 0 8%V:   2.1   50   7%  7%  0.0% 0 0 8%FLI: Unrecognized chunk type: 6400
+  warning: processed FLI chunk where encoded size = 6336
+  and final chunk ptr = 90
+V:   2.2   51   7%  7%  0.0% 0 0 8%V:   2.2   52   7%  7%  0.0% 0 0 8%V:   2.3   53   7%  7%  0.0% 0 0 7%FLI: Unrecognized chunk type: 13568
+  warning: processed FLI chunk where encoded size = 6031
+  and final chunk ptr = 90
+V:   2.3   54   7%  7%  0.0% 0 0 7%V:   2.3   55   7%  7%  0.0% 0 0 7%V:   2.4   56   7%  7%  0.0% 0 0 6%V:   2.4   57   7%  7%  0.0% 0 0 6%V:   2.5   58   7%  7%  0.0% 0 0 6%V:   2.5   59   7%  7%  0.0% 0 0 6%V:   2.6   60   7%  7%  0.0% 0 0 5%V:   2.6   61   7%  7%  0.0% 0 0 5%V:   2.7   62   7%  7%  0.0% 0 0 5%V:   2.7   63   7%  7%  0.0% 0 0 5%V:   2.7   64   7%  7%  0.0% 0 0 4%V:   2.8   65   7%  7%  0.0% 0 0 4%FLI: Unrecognized chunk type: 14848
+  warning: processed FLI chunk where encoded size = 5060
+  and final chunk ptr = 90
+V:   2.8   66   7%  7%  0.0% 0 0 4%V:   2.9   67   7%  7%  0.0% 0 0 4%FLI: Unrecognized chunk type: 12800
+  warning: processed FLI chunk where encoded size = 4773
+  and final chunk ptr = 90
+V:   2.9   68   7%  7%  0.0% 0 0 3%FLI: Unrecognized chunk type: 11776
+  warning: processed FLI chunk where encoded size = 4551
+  and final chunk ptr = 90
+V:   3.0   69   7%  7%  0.0% 0 0 3%FLI: Unrecognized chunk type: 11264
+  warning: processed FLI chunk where encoded size = 4372
+  and final chunk ptr = 90
+V:   3.0   70   7%  7%  0.0% 0 0 3%FLI: Unrecognized chunk type: 10496
+  warning: processed FLI chunk where encoded size = 4235
+  and final chunk ptr = 90
+V:   3.0   71   7%  7%  0.0% 0 0 3%FLI: Unrecognized chunk type: 10496
+  warning: processed FLI chunk where encoded size = 3963
+  and final chunk ptr = 90
+V:   3.1   72   7%  7%  0.0% 0 0 3%FLI: Unrecognized chunk type: 10240
+  warning: processed FLI chunk where encoded size = 3829
+  and final chunk ptr = 90
+V:   3.1   73   6%  7%  0.0% 0 0 2%FLI: Unrecognized chunk type: 10240
+  warning: processed FLI chunk where encoded size = 3580
+  and final chunk ptr = 90
+V:   3.2   74   6%  7%  0.0% 0 0 2%FLI: Unrecognized chunk type: 10752
+  warning: processed FLI chunk where encoded size = 3108
+  and final chunk ptr = 90
+V:   3.2   75   6%  7%  0.0% 0 0 2%FLI: Unrecognized chunk type: 11008
+  warning: processed FLI chunk where encoded size = 2869
+  and final chunk ptr = 90
+V:   3.3   76   6%  7%  0.0% 0 0 2%FLI: Unrecognized chunk type: 11776
+  warning: processed FLI chunk where encoded size = 2992
+  and final chunk ptr = 90
+V:   3.3   77   6%  7%  0.0% 0 0 2%FLI: Unrecognized chunk type: 12288
+  warning: processed FLI chunk where encoded size = 3147
+  and final chunk ptr = 90
+V:   3.3   78   6%  7%  0.0% 0 0 2%FLI: Unrecognized chunk type: 13312
+  warning: processed FLI chunk where encoded size = 3365
+  and final chunk ptr = 90
+V:   3.4   79   6%  7%  0.0% 0 0 1%FLI: Unrecognized chunk type: 14080
+  warning: processed FLI chunk where encoded size = 3394
+  and final chunk ptr = 90
+V:   3.4   80   6%  7%  0.0% 0 0 1%V:   3.5   81   6%  7%  0.0% 0 0 1%V:   3.5   82   6%  7%  0.0% 0 0 1%V:   3.6   83   6%  7%  0.0% 0 0 1%V:   3.6   84   6%  7%  0.0% 0 0 1%V:   3.7   85   6%  7%  0.0% 0 0 0%V:   3.7   86   6%  7%  0.0% 0 0 0%V:   3.7   87   6%  7%  0.0% 0 0 0%V:   3.8   88   6%  7%  0.0% 0 0 0%V:   3.8   89   6%  7%  0.0% 0 0 0%FLI: Unrecognized chunk type: 24832
+  warning: processed FLI chunk where encoded size = 3364
+  and final chunk ptr = 68
+V:   3.9   90   6%  7%  0.0% 0 0 0%ds_fill_buffer: EOF reached (stream: video)  
+EOF code: 1  
+SDL: activating XScreensaver/DPMS
+
+*** free_stream() called ***
+Cleaning up lirc stuff.
+
+Exiting... (End of file)

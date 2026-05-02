@@ -1,0 +1,5 @@
+errors in fli playback
+
+wrong colours in second part, wrong backgound (not cleared?) in third part.
+
+compressed with bzip2 since (almost) whole clip is needed.

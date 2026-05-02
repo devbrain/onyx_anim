@@ -1,0 +1,53 @@
+
+Animated sequence
+
+\seq\
+
+angel\		A rotating spaceship cyber
+b1		Nice plane 
+backflip	Skeleton doing a backflip
+barbshop\	A 3d visit to the barber
+barbpole\	A barber pole rotating
+car		Solid model racing car
+catnap		While the cat is sleeping, lets...
+chasers		Two birds chasing each other...
+chess1\		A alien and a girl playing chess...
+circles		Round and round they go, where they stop you'll know!
+colawars\	AVS sound/animation demo
+deja_vu		Very nice...
+deskvid\	A Spectrum animation demo
+dinohel		Dinosaur and helicopter
+dmmarble	Demon marble demo
+dp_shttl\	Space Shuttle Sequences
+duke\		The duke on a horse
+fork\		A bending fork (vidi ST)
+froggie		Here they are... The froggie!
+golf		A golfing tragedy
+gunfight\	Like the old western...
+gunship		View from a cockpit
+hand\		A face on a hand, speaking (vidi ST)
+harvey\		"One-Eyed Harvey:  Portrait 1 of the Ship's Computer
+helecopt\	SEQ animation of early attempt at flying
+insects		A couple of bees flying around
+klingone\	Klingon ship being blown up.    1 meg.
+jri		JRI letters animated in 3d
+jump2		Do you dare to jump?
+lamp		A luxo lamp a la Bixlar
+mind10		Very nice demo	
+manta_2		Demo of a swimming manta ray. Awesome!
+pt7_step	...Nice...
+probe\		A probe traveling in deep space..
+scanned		Series of scanned images to create animation
+shutlnch\	Space Shuttle Sequences
+skyfall		This CAD 3-D SEQ. animation has it all	
+starwar		X wing destroying deathstar
+sthenge\	a ship flying aroung and throuhg Stonhenge
+strek_ng	Animation of the Enterprise from Star Trek-The Next Generation
+tecdelit	Is there life after this...
+unicycle	Have a nice ride
+visitor		Strange visitors for your pleasure...
+xmas		It's Xmas once again...
+mvice\		Miam vice avs demo (good music)
+run1\		Nice animation...
+14_balls 	14 balls...
+4cycle\		Animation of the operation of a 4 cycle gasoline engine	

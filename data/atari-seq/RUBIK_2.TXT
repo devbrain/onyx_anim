@@ -1,0 +1,14 @@
+  I built this animation using a 3D2 file uploaded by LEXICOR software. 
+My intension was to show that there are still some interesting things
+that can be done with an ST. The RD2 file was created using CYBER SCULPT.
+I then rendered 62 SPC files with PHEONIX. A great and fast rendering
+software from LEXICOR. Then SPC images were then converted to DEGAS format
+and loaded into CYBER PAINT. 
+ You will need ANIMATE4.PRG (Available on GENIE) to view this animation as
+palette support is required. I suggest you use PING PONG mode. 
+Hope you enjoy it.
+
+John Brenner 
+
+ 
+ P.S. Other animations will be available soon. Keyword. PMJB 
