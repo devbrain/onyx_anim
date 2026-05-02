@@ -40,3 +40,9 @@ target_compile_features(anim_to_ppm PRIVATE cxx_std_20)
 
 neutrino_target_warnings(anim_to_ppm)
 neutrino_target_sanitizers(anim_to_ppm)
+
+option(NEUTRINO_ONYX_ANIM_BUILD_PLAYER
+       "Build the SDL3 + Dear ImGui anim_player example" ON)
+if (NEUTRINO_ONYX_ANIM_BUILD_PLAYER)
+    add_subdirectory(anim_player)
+endif ()
