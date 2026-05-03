@@ -55,28 +55,27 @@ namespace bink {
             const stride_t stride_complex{
                 static_cast<std::ptrdiff_t>(sizeof(std::complex<float>))};
             const shape_t axes{0};
-            // Treat coeffs as `N/2+1` complex; output back into the same
-            // buffer interpreted as N real floats. PocketFFT's c2r runs
-            // an inverse DFT yielding N real samples scaled by N (not
-            // 1/N) — we apply a 0.5 pre-scale below to match ffmpeg's
-            // tx_init scale.
+            // Use a separate output buffer to avoid any in-place
+            // aliasing surprises in pocketfft.
+            std::vector<float> out(N, 0.0f);
             const auto* in = reinterpret_cast<const std::complex<float>*>(coeffs);
             c2r(shape, stride_complex, stride_real, axes, /*forward=*/false,
-                in, coeffs, /*fct=*/0.5f);
+                in, out.data(), /*fct=*/0.5f);
+            std::memcpy(coeffs, out.data(), N * sizeof(float));
         }
 
-        // Inverse DCT-III with normalisation. PocketFFT's `dct` accepts
-        // a `type` parameter (1..4); type 3 is what ffmpeg's
-        // AV_TX_FLOAT_DCT-with-inverse=1 produces. Scale = 1.
+        // ffmpeg's AV_TX_FLOAT_DCT (inverse) is a DCT-III variant whose
+        // output is the full bink frame_len — the size parameter
+        // ffmpeg passes (1<<(frame_len_bits-1) = frame_len/2) refers
+        // to half of the output, with the framework internally
+        // expanding to 2N samples. Empirically pocketfft's DCT type 3
+        // at `size = frame_len` reproduces ffmpeg's first samples
+        // exactly. Scale per ffmpeg: 1/(2*size) = 1/N.
         void inverse_dct(float* coeffs, std::size_t N) {
             using namespace pocketfft;
             const shape_t shape{N};
             const stride_t stride_real{static_cast<std::ptrdiff_t>(sizeof(float))};
             const shape_t axes{0};
-            // pocketfft's `dct` with type=3 + ortho=false gives an
-            // inverse DCT-II (which equals DCT-III/N up to scale).
-            // ffmpeg applies scale = 1/(N) externally; we fold the same
-            // factor into pocketfft's `fct`.
             const float fct = 1.0f / static_cast <float>(N);
             dct(shape, stride_real, stride_real, axes,
                 /*type=*/3, coeffs, coeffs, fct, /*ortho=*/false);
@@ -274,25 +273,26 @@ namespace bink {
 
                 if (s.use_dct) {
                     coeffs[0] /= 0.5f;
-                    // Run inverse DCT in-place over the first frame_len/2
-                    // coefficients, then promote to a frame_len-long
-                    // output via type-III's natural symmetry... actually
-                    // ffmpeg's DCT-III of length N returns N real
-                    // samples (the time-domain output).
-                    // pocketfft's dct type 3 with shape={N/2} produces
-                    // N/2 outputs. ffmpeg's frame_len here is N (the
-                    // PCM-domain length), but `av_tx_init` was called
-                    // with size 1<<(frame_len_bits-1) = N/2. So the
-                    // DCT operates on N/2 input → N/2 output and the
-                    // output goes into the first half of out_samples.
+                    // ffmpeg's AV_TX_FLOAT_DCT (inverse) is documented
+                    // as a "DCT-III" but on a size of frame_len/2 — the
+                    // output is the full frame_len samples in practice
+                    // (the layout is similar to a half-length MDCT).
+                    // We mirror that by running pocketfft's dct type 3
+                    // at full frame_len size, with the bink-specific
+                    // pre-scaling on coeffs[0]. The trailing coeffs
+                    // that bink writes past frame_len/2 line up as
+                    // padding consumed by the longer transform.
                     inverse_dct(coeffs.data(),
-                                static_cast <std::size_t>(s.frame_len / 2));
+                                static_cast <std::size_t>(s.frame_len));
                     std::memcpy(out_samples.data(), coeffs.data(),
-                                static_cast <std::size_t>(s.frame_len / 2) * sizeof(float));
+                                static_cast <std::size_t>(s.frame_len) * sizeof(float));
                 } else {
-                    // ffmpeg conjugates the imaginary parts before the
-                    // c2r — effectively flipping the transform direction
-                    // sign. Mirror that.
+                    // ffmpeg's bink_audio applies a sign flip on the
+                    // imaginary parts before its inverse RDFT to match
+                    // its tx_init RDFT_INV sign convention. With
+                    // pocketfft's c2r(forward=false), this combination
+                    // produces sample-accurate output (verified against
+                    // ffmpeg's first block).
                     for (int ii = 2; ii < s.frame_len; ii += 2) {
                         coeffs[ii + 1] = -coeffs[ii + 1];
                     }
@@ -352,22 +352,37 @@ namespace bink {
         br.skip_bits(32);
 
         // Per-channel intermediate buffers; we'll interleave at the end.
+        // ffmpeg's binkaudio_receive_frame can decode multiple "blocks"
+        // from a single audio packet — one per chunk of (frame_len -
+        // overlap_len) samples. We mirror that with an outer loop that
+        // walks through the packet's bit stream, decoding blocks until
+        // the bits are exhausted. The previous bug here was treating
+        // each packet as a single block, which dropped audio data and
+        // produced clicks at packet boundaries.
         const int total_channels = s.use_dct ? s.channels : 1;
         std::vector <std::vector <float>> per_channel_acc(
             static_cast <std::size_t>(total_channels));
 
-        s.ch_offset = 0;
-        while (s.ch_offset < total_channels) {
-            const int local =
-                std::min(kAudioMaxChannels, total_channels - s.ch_offset);
-            if (auto r = decode_block(s, br, local, per_channel_acc); !r) {
-                return r;
+        while (br.bits_left() > 0u) {
+            s.ch_offset = 0;
+            while (s.ch_offset < total_channels) {
+                const int local =
+                    std::min(kAudioMaxChannels, total_channels - s.ch_offset);
+                if (auto r = decode_block(s, br, local, per_channel_acc); !r) {
+                    return r;
+                }
+                s.ch_offset += kAudioMaxChannels;
+                // Align bit cursor to next 32-bit boundary between blocks.
+                const auto pos = br.bits_consumed();
+                const auto pad = (32u - (pos & 31u)) & 31u;
+                if (pad) br.skip_bits(static_cast <unsigned int>(pad));
+                if (br.bits_left() == 0u) break;
             }
-            s.ch_offset += kAudioMaxChannels;
-            // Align bit cursor to next 32-bit boundary between blocks.
-            const auto pos = br.bits_consumed();
-            const auto pad = (32u - (pos & 31u)) & 31u;
-            if (pad) br.skip_bits(static_cast <unsigned int>(pad));
+            // Mark non-first AFTER a complete pass through all
+            // channels — overlap-add now applies to the next batch.
+            s.first = false;
+            // Stop only when no bits remain. Block-decode itself
+            // bounds-checks against bits_left at each read.
             if (br.bits_left() == 0u) break;
         }
         s.first = false;

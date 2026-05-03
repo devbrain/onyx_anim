@@ -46,3 +46,14 @@ option(NEUTRINO_ONYX_ANIM_BUILD_PLAYER
 if (NEUTRINO_ONYX_ANIM_BUILD_PLAYER)
     add_subdirectory(anim_player)
 endif ()
+
+add_executable(anim_dump_audio anim_dump_audio.cc)
+target_link_libraries(anim_dump_audio PRIVATE
+        neutrino::onyx_anim_sdk
+        neutrino::onyx_anim_codecs
+        neutrino::musac
+)
+target_compile_features(anim_dump_audio PRIVATE cxx_std_20)
+
+neutrino_target_warnings(anim_dump_audio)
+neutrino_target_sanitizers(anim_dump_audio)

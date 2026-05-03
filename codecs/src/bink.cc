@@ -1,6 +1,8 @@
 #include <algorithm>
 #include <array>
 #include <chrono>
+#include <cstdio>
+#include <cstdlib>
 #include <cstdint>
 #include <cstring>
 #include <memory>
@@ -357,6 +359,18 @@ namespace onyx_anim {
                         audio_rate_ = 0;
                         audio_channels_ = 0;
                         return {};
+                    }
+                    // Diagnostic dump of raw float audio when the env
+                    // var is set — used to validate Bink Audio output
+                    // against ffmpeg without the int8 quantisation
+                    // introduced by pcm_audio_decoder.
+                    if (const char* dump = std::getenv("BINK_DUMP_FLOAT");
+                        dump && *dump) {
+                        if (FILE* f = std::fopen(dump, "wb")) {
+                            std::fwrite(samples_f.data(), sizeof(float),
+                                        samples_f.size(), f);
+                            std::fclose(f);
+                        }
                     }
                     auto bytes = std::make_shared<std::vector <std::int8_t>>();
                     bytes->reserve(samples_f.size());
