@@ -15,6 +15,7 @@
 #include <musac/sdk/io_stream.hh>
 
 #include "cdxl.hh"
+#include "codec_common.hh"
 
 namespace onyx_anim {
     namespace {
@@ -27,189 +28,11 @@ namespace onyx_anim {
         // audio sample rate so the per-chunk audio block plays in sync.
         constexpr unsigned int kDefaultFps = 12;
 
-        // ----- Audio: PCM bytes wrapped as a real musac decoder ---------------
-        //
-        // Same architecture as the AnimFX path in amiga_anim.cc: pre-load all
-        // per-chunk audio bytes once at open(), wrap with io_from_memory in
-        // take_audio_track(), and hand back a self-contained audio_source.
-        // The pcm_audio_decoder reads bytes through the io_stream — no
-        // side-channel buffer, no atomic cursor.
-
-        using pcm_buffer = std::shared_ptr<const std::vector<std::int8_t>>;
-
-        class pcm_audio_decoder final : public musac::decoder {
-            public:
-                pcm_audio_decoder(musac::sample_rate_t rate,
-                                  musac::channels_t   channels,
-                                  pcm_buffer          owned_bytes) noexcept
-                    : rate_(rate),
-                      channels_(channels),
-                      owned_bytes_(std::move(owned_bytes)) {}
-
-                [[nodiscard]] const char* get_name() const override {
-                    return "CDXL raw 8-bit signed PCM";
-                }
-
-                void open(musac::io_stream* stream) override {
-                    stream_ = stream;
-                    set_is_open(stream_ != nullptr);
-                }
-
-                [[nodiscard]] musac::channels_t get_channels() const override {
-                    return channels_;
-                }
-                [[nodiscard]] musac::sample_rate_t get_rate() const override {
-                    return rate_;
-                }
-
-                bool rewind() override {
-                    return stream_ && stream_->seek(0, musac::seek_origin::set) >= 0;
-                }
-
-                [[nodiscard]] std::chrono::microseconds duration() const override {
-                    if (!rate_ || !channels_ || !owned_bytes_) {
-                        return std::chrono::microseconds{0};
-                    }
-                    const auto sample_frames =
-                        static_cast<std::int64_t>(owned_bytes_->size() / channels_);
-                    return std::chrono::microseconds{
-                        sample_frames * 1'000'000LL /
-                        static_cast<std::int64_t>(rate_)};
-                }
-
-                bool seek_to_time(std::chrono::microseconds pos) override {
-                    if (!stream_ || !rate_ || !channels_) return false;
-                    const std::int64_t sample_frames =
-                        std::max<std::int64_t>(0, pos.count()) *
-                        static_cast<std::int64_t>(rate_) / 1'000'000LL;
-                    const std::int64_t byte_offset =
-                        sample_frames * static_cast<std::int64_t>(channels_);
-                    return stream_->seek(byte_offset, musac::seek_origin::set) >= 0;
-                }
-
-            protected:
-                std::size_t do_decode(float* buf, std::size_t len,
-                                      bool& call_again) override {
-                    if (!stream_ || !channels_) {
-                        call_again = false;
-                        return 0;
-                    }
-                    std::vector<std::int8_t> tmp(len);
-                    const auto got = stream_->read(tmp.data(), tmp.size());
-                    for (std::size_t i = 0; i < got; ++i) {
-                        buf[i] = static_cast<float>(tmp[i]) / 128.0f;
-                    }
-                    call_again = got == tmp.size();
-                    return got;
-                }
-
-            private:
-                musac::sample_rate_t rate_     = 0;
-                musac::channels_t    channels_ = 0;
-                pcm_buffer           owned_bytes_;
-                musac::io_stream*    stream_   = nullptr;
-        };
-
-        // ----- Pixel conversions ----------------------------------------------
-
-        // Convert a CDXL BIT_PLANAR bitmap to chunky 8-bit indices.
-        //
-        // CDXL's BIT_PLANAR layout is **plane-major**, NOT row-interleaved
-        // like ILBM: the buffer holds all rows of plane 0 contiguously, then
-        // all rows of plane 1, etc. (Matches ffmpeg's bitplanar2chunky in
-        // libavcodec/cdxl.c — confusingly, iffanimplay's "bitPlanarToChunky"
-        // assumes the ILBM row-interleaved layout, which produces a
-        // characteristic "N scattered sub-images" garbled output on real
-        // CDXL files.)
-        //
-        // Each plane row is `bytes_per_plane_row` bytes (rounded up to a
-        // 16-bit word for Amiga hardware compatibility). Pixels within a
-        // byte are MSB-first.
-        void bitplanar_to_chunky(const std::uint8_t* src,
-                                 std::size_t         bytes_per_plane_row,
-                                 unsigned int        planes,
-                                 unsigned int        width,
-                                 unsigned int        height,
-                                 std::uint8_t*       dst) noexcept {
-            std::memset(dst, 0,
-                        static_cast<std::size_t>(width) *
-                        static_cast<std::size_t>(height));
-            for (unsigned int p = 0; p < planes; ++p) {
-                for (unsigned int y = 0; y < height; ++y) {
-                    const std::uint8_t* row = src +
-                        (static_cast<std::size_t>(p) * height +
-                         static_cast<std::size_t>(y)) * bytes_per_plane_row;
-                    std::uint8_t* out_row = dst +
-                        static_cast<std::size_t>(y) * width;
-                    for (unsigned int x = 0; x < width; ++x) {
-                        const std::uint8_t bit =
-                            static_cast<std::uint8_t>(
-                                (row[x >> 3u] >> (7u - (x & 0x7u))) & 1u);
-                        out_row[x] = static_cast<std::uint8_t>(
-                            out_row[x] | (bit << p));
-                    }
-                }
-            }
-        }
-
-        // Render one chunky row of HAM6/HAM8 indices into 8-bit-per-channel
-        // RGB. Top 2 bits of each pixel are a mode (0=hold-from-palette,
-        // 1=modify-blue, 2=modify-red, 3=modify-green); the lower bits are
-        // the value.
-        //
-        // Channel-expansion convention differs between HAM6 and HAM8 in
-        // CDXL — match ffmpeg's libavcodec/cdxl.c:
-        //   HAM6 (val is 4 bits): replicate → 8-bit = `val * 0x11`
-        //                         (the upper nibble holds val, lower nibble
-        //                         is also val; prev's bits don't survive)
-        //   HAM8 (val is 6 bits): keep prev's low 2 bits → 8-bit =
-        //                         `(val << 2) | (prev & 3)`
-        // Note: this differs from amiga_anim's ANIM HAM8 (which uses
-        // replicate). Don't unify the two without checking both
-        // cross-checks.
-        void ham_row_to_rgb888(const std::uint8_t* src_row,
-                               unsigned int        width,
-                               unsigned int        planes, // 6 or 8
-                               const std::uint8_t* palette_888,
-                               std::uint8_t*       dst_row) noexcept {
-            const bool ham8 = (planes == 8);
-            const unsigned int hold_bits = ham8 ? 6u : 4u;
-            const std::uint8_t mode_shift = static_cast<std::uint8_t>(hold_bits);
-            const std::uint8_t val_mask =
-                static_cast<std::uint8_t>((1u << hold_bits) - 1u);
-            const unsigned int sl = 8u - hold_bits;
-            const std::uint8_t prev_mask =
-                static_cast<std::uint8_t>((1u << sl) - 1u);  // 0x03 / 0x0F
-
-            std::uint8_t r = palette_888[0];
-            std::uint8_t g = palette_888[1];
-            std::uint8_t b = palette_888[2];
-            for (unsigned int x = 0; x < width; ++x) {
-                const std::uint8_t v    = src_row[x];
-                const std::uint8_t mode = static_cast<std::uint8_t>(v >> mode_shift);
-                const std::uint8_t val  = static_cast<std::uint8_t>(v & val_mask);
-                if (mode == 0) {
-                    const std::size_t pi = static_cast<std::size_t>(val) * 3u;
-                    r = palette_888[pi + 0];
-                    g = palette_888[pi + 1];
-                    b = palette_888[pi + 2];
-                } else {
-                    const std::uint8_t shifted = static_cast<std::uint8_t>(val << sl);
-                    auto modify = [&](std::uint8_t prev) -> std::uint8_t {
-                        if (ham8) return static_cast<std::uint8_t>(
-                            shifted | (prev & prev_mask));
-                        // HAM6: pure replicate; prev bits don't survive.
-                        return static_cast<std::uint8_t>(shifted | (shifted >> hold_bits));
-                    };
-                    if      (mode == 1) b = modify(b);
-                    else if (mode == 2) r = modify(r);
-                    else                g = modify(g);
-                }
-                dst_row[x * 3 + 0] = r;
-                dst_row[x * 3 + 1] = g;
-                dst_row[x * 3 + 2] = b;
-            }
-        }
+        // Audio (pcm_audio_decoder), bitplanar→chunky and HAM rendering all
+        // live in codec_common.hh now — see the header for design notes.
+        // CDXL HAM8 uses keep-prev's-low-bits (the ffmpeg cdxl.c convention).
+        using detail::pcm_buffer;
+        using detail::pcm_audio_decoder;
 
         // ----- Decoder --------------------------------------------------------
 
@@ -472,11 +295,11 @@ namespace onyx_anim {
                     }
 
                     // Convert: BIT_PLANAR (plane-major) → chunky 8-bit.
-                    bitplanar_to_chunky(bitmap_buf_.data(),
-                                        bytes_per_plane_,
-                                        h->planes,
-                                        h->width, h->height,
-                                        chunky_buf_.data());
+                    detail::bitplanar_to_chunky(bitmap_buf_.data(),
+                                                bytes_per_plane_,
+                                                h->planes,
+                                                h->width, h->height,
+                                                chunky_buf_.data());
 
                     // Present.
                     if (info_.format == pixel_format::rgb888) {
@@ -491,8 +314,11 @@ namespace onyx_anim {
                                                       static_cast<std::size_t>(y) * h->width;
                             std::uint8_t* row = rgb_buf_.data() +
                                                 static_cast<std::size_t>(y) * h->width * 3u;
-                            ham_row_to_rgb888(src, h->width, h->planes,
-                                              palette_888_.data(), row);
+                            detail::ham_row_to_rgb888(
+                                src, h->width, h->planes,
+                                palette_888_.data(),
+                                /*ham8_keep_prev_low_bits=*/true,
+                                row);
                             out.write_pixels(
                                 0,
                                 static_cast<int>(y),
@@ -563,6 +389,7 @@ namespace onyx_anim {
                     auto io = musac::io_from_memory(audio_pcm_->data(),
                                                     audio_pcm_->size());
                     auto dec = std::make_unique<pcm_audio_decoder>(
+                        "CDXL raw 8-bit signed PCM",
                         audio_rate_, audio_channels_, audio_pcm_);
                     return std::make_unique<musac::audio_source>(
                         std::move(dec), std::move(io));

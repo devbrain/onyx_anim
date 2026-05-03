@@ -23,6 +23,7 @@
 #include <musac/sdk/decoder.hh>
 
 #include "amiga_anim.hh"
+#include "codec_common.hh"
 
 namespace onyx_anim {
     namespace {
@@ -137,109 +138,11 @@ namespace onyx_anim {
         // position when it issues a video seek (calls
         // `audio_stream::seek_to_time` directly).
 
-        // Storage that backs the io_stream. Held by shared_ptr so the bytes
-        // outlive any caller that holds onto the audio_source.
-        using pcm_buffer = std::shared_ptr<const std::vector<std::int8_t>>;
-
-        // Minimal decoder for raw signed 8-bit interleaved PCM. Reads bytes
-        // from its io_stream, converts to float in [-1, 1]. No header parsing —
-        // the rate/channels are baked in at construction time.
-        class pcm_audio_decoder final : public musac::decoder {
-            public:
-                pcm_audio_decoder(musac::sample_rate_t rate,
-                                  musac::channels_t   channels,
-                                  pcm_buffer          owned_bytes) noexcept
-                    : rate_(rate),
-                      channels_(channels),
-                      owned_bytes_(std::move(owned_bytes)) {}
-
-                [[nodiscard]] const char* get_name() const override {
-                    return "Amiga raw 8-bit signed PCM";
-                }
-
-                void open(musac::io_stream* stream) override {
-                    stream_ = stream;
-                    set_is_open(stream_ != nullptr);
-                }
-
-                [[nodiscard]] musac::channels_t get_channels() const override {
-                    return channels_;
-                }
-                [[nodiscard]] musac::sample_rate_t get_rate() const override {
-                    return rate_;
-                }
-
-                bool rewind() override {
-                    return stream_ && stream_->seek(0, musac::seek_origin::set) >= 0;
-                }
-
-                [[nodiscard]] std::chrono::microseconds duration() const override {
-                    if (!rate_ || !channels_ || !owned_bytes_) {
-                        return std::chrono::microseconds{0};
-                    }
-                    const auto sample_frames =
-                        static_cast<std::int64_t>(owned_bytes_->size() / channels_);
-                    return std::chrono::microseconds{
-                        sample_frames * 1'000'000LL /
-                        static_cast<std::int64_t>(rate_)};
-                }
-
-                bool seek_to_time(std::chrono::microseconds pos) override {
-                    if (!stream_ || !rate_ || !channels_) return false;
-                    const std::int64_t sample_frames =
-                        std::max<std::int64_t>(0, pos.count()) *
-                        static_cast<std::int64_t>(rate_) / 1'000'000LL;
-                    // 1 byte per sample for 8-bit; channels samples per frame.
-                    const std::int64_t byte_offset =
-                        sample_frames * static_cast<std::int64_t>(channels_);
-                    return stream_->seek(byte_offset, musac::seek_origin::set) >= 0;
-                }
-
-            protected:
-                std::size_t do_decode(float* buf, std::size_t len,
-                                      bool& call_again) override {
-                    if (!stream_ || !channels_) {
-                        call_again = false;
-                        return 0;
-                    }
-                    // 1 byte per int8 sample → request `len` bytes for `len`
-                    // float samples. Read may short-return at EOF.
-                    std::vector<std::int8_t> tmp(len);
-                    const auto got = stream_->read(tmp.data(), tmp.size());
-                    for (std::size_t i = 0; i < got; ++i) {
-                        buf[i] = static_cast<float>(tmp[i]) / 128.0f;
-                    }
-                    call_again = got == tmp.size();
-                    return got;
-                }
-
-            private:
-                musac::sample_rate_t rate_     = 0;
-                musac::channels_t    channels_ = 0;
-                pcm_buffer           owned_bytes_;
-                musac::io_stream*    stream_   = nullptr;
-        };
-
-        [[nodiscard]] bool read_full_file(musac::io_stream* s,
-                                          std::vector<std::uint8_t>& out) {
-            const auto sz = s->get_size();
-            if (sz < 0) return false;
-            out.resize(static_cast<std::size_t>(sz));
-            if (s->seek(0, musac::seek_origin::set) < 0) return false;
-            return s->read(out.data(), out.size()) == out.size();
-        }
-
-        // Works for both iff::chunk_event and iff::chunk_iterator::chunk_info,
-        // which share `reader` field shape but have distinct types.
-        template <typename T>
-        [[nodiscard]] std::vector<std::uint8_t>
-        read_chunk_bytes(T const& e) {
-            if (!e.reader) return {};
-            auto raw = e.reader->read_all();
-            std::vector<std::uint8_t> out(raw.size());
-            std::memcpy(out.data(), raw.data(), raw.size());
-            return out;
-        }
+        // pcm_buffer / pcm_audio_decoder live in codec_common.hh now.
+        using detail::pcm_buffer;
+        using detail::pcm_audio_decoder;
+        using detail::read_full_file;
+        using detail::read_chunk_bytes;
 
         class amiga_anim_decoder_impl final : public anim_decoder {
             public:
@@ -417,6 +320,7 @@ namespace onyx_anim {
                     auto io = musac::io_from_memory(audio_pcm_->data(),
                                                     audio_pcm_->size());
                     auto dec = std::make_unique<pcm_audio_decoder>(
+                        "Amiga raw 8-bit signed PCM",
                         audio_rate_, audio_channels_, audio_pcm_);
                     return std::make_unique<musac::audio_source>(
                         std::move(dec), std::move(io));
@@ -749,14 +653,9 @@ namespace onyx_anim {
                 // from the previous pixel within the row; rows reset to the
                 // first palette entry, matching ffmpeg's `delta = pal[1]`.
                 void render_ham_to_rgb() noexcept {
-                    const unsigned int hold_bits =
-                        (planes_ == 8) ? 6u : 4u;
-                    const std::uint8_t mode_shift =
-                        static_cast<std::uint8_t>(hold_bits);
-                    const std::uint8_t val_mask =
-                        static_cast<std::uint8_t>((1u << hold_bits) - 1u);
-                    const unsigned int sl = 8u - hold_bits;
-
+                    // ANIM HAM uses replicate channel-expansion (matching
+                    // ffmpeg's libavcodec/iff.c). HAM8's keep-prev variant is
+                    // CDXL-only.
                     for (unsigned int y = 0; y < height_; ++y) {
                         const std::uint8_t* src =
                             fb_chunky_.data() +
@@ -764,38 +663,9 @@ namespace onyx_anim {
                         std::uint8_t* dst =
                             fb_rgb_.data() +
                             static_cast<std::size_t>(y) * width_ * 3u;
-                        std::uint8_t r = palette_[0];
-                        std::uint8_t g = palette_[1];
-                        std::uint8_t b = palette_[2];
-                        for (unsigned int x = 0; x < width_; ++x) {
-                            const std::uint8_t v    = src[x];
-                            const std::uint8_t mode = static_cast<std::uint8_t>(
-                                v >> mode_shift);
-                            const std::uint8_t val  = static_cast<std::uint8_t>(
-                                v & val_mask);
-                            if (mode == 0) {
-                                const std::size_t pi =
-                                    static_cast<std::size_t>(val) * 3u;
-                                r = palette_[pi + 0];
-                                g = palette_[pi + 1];
-                                b = palette_[pi + 2];
-                            } else {
-                                // Replicate the `hold_bits`-bit modify value
-                                // into 8 bits (matching ffmpeg's
-                                // `tmp = val << (8-ham); tmp |= tmp >> ham;`).
-                                const std::uint8_t shifted =
-                                    static_cast<std::uint8_t>(val << sl);
-                                const std::uint8_t rep =
-                                    static_cast<std::uint8_t>(
-                                        shifted | (shifted >> hold_bits));
-                                if      (mode == 1) b = rep;
-                                else if (mode == 2) r = rep;
-                                else                g = rep;
-                            }
-                            dst[x * 3 + 0] = r;
-                            dst[x * 3 + 1] = g;
-                            dst[x * 3 + 2] = b;
-                        }
+                        detail::ham_row_to_rgb888(
+                            src, width_, planes_, palette_.data(),
+                            /*ham8_keep_prev_low_bits=*/false, dst);
                     }
                 }
 
