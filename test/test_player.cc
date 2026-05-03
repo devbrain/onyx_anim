@@ -94,6 +94,40 @@ TEST_CASE("player: take_audio_track delivers the source when no audio_device was
     CHECK(src != nullptr);
 }
 
+TEST_CASE("player: opens an ANIM+SLA file with no streaming track and exposes per-frame events") {
+    const auto path = std::string(NEUTRINO_ONYX_ANIM_DATA_DIR) +
+                      "/amiga-anim/Gressklippermannen";
+    if (!exists(path)) return;
+
+    auto stream = musac::io_from_file(path.c_str(), "rb");
+    REQUIRE(stream != nullptr);
+
+    auto pr = onyx_anim::player::open(std::move(stream));
+    REQUIRE(pr.has_value());
+    auto p = std::move(*pr);
+
+    // ANIM+SLA exposes audio only via per-frame events, not as a
+    // streaming track.
+    CHECK(p->audio_track_count() == 0u);
+
+    p->play();
+    onyx_image::memory_surface out;
+
+    // Walk a handful of frames and collect any events the codec
+    // surfaces. SCTL triggers may not land on the very first frame
+    // depending on the file, so probe a window.
+    bool saw_event = false;
+    const auto period = p->info().frame_period;
+    for (unsigned int i = 0; i < 16u; ++i) {
+        p->advance_to_time(period * i, out);
+        if (!p->pending_audio_events().empty()) {
+            saw_event = true;
+            break;
+        }
+    }
+    CHECK(saw_event);
+}
+
 TEST_CASE("player: take_audio_track exposes a usable io_stream observer") {
     const auto path = smk_sample("SPLASH.SMK");
     if (!exists(path)) return;
