@@ -15,7 +15,6 @@
 //     the symbol order by repeatedly merging adjacent runs based on
 //     bits read from the stream
 
-#include <bink/bit_reader.hh>
 #include <bink/types.hh>
 #include <bink/vlc.hh>
 

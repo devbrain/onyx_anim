@@ -9,9 +9,8 @@
 // Source IDs for the modern (`BIK[fghi]`) variant. `binkb` uses a
 // different set; we don't model it here yet.
 
-#include <bink/bit_reader.hh>
-#include <bink/tree.hh>
 #include <bink/types.hh>
+#include <bink/tree.hh>
 
 #include <array>
 #include <cstdint>

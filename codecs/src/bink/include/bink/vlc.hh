@@ -11,7 +11,7 @@
 // convention) — so reading `L` LSB-first bits and matching against
 // `bink_tree_bits[i][*]` directly recovers the symbol.
 
-#include <bink/bit_reader.hh>
+#include <bink/types.hh>
 
 #include <array>
 #include <cstdint>

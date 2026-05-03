@@ -8,6 +8,7 @@
 
 #include <onyx_anim/sdk/expected.hh>
 #include <bytes/bytes.hh>
+#include <bytes/bit_reader.hh>
 
 #include <utility>
 
@@ -25,4 +26,5 @@ namespace bink {
     }
 
     using byte_reader = bytes::byte_reader; // little-endian default
+    using bit_reader  = bytes::bit_reader;  // LSB-first
 } // namespace bink

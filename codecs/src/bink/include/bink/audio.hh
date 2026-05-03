@@ -18,7 +18,6 @@
 // `decode_packet` calls; the caller is expected to feed packets in
 // order and accumulate float output across calls.
 
-#include <bink/bit_reader.hh>
 #include <bink/types.hh>
 
 #include <array>

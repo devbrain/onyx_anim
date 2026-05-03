@@ -24,7 +24,6 @@
 // by `jump_distance` (= size-of-left-subtree), then increments — landing on
 // the first cell of the right subtree.
 
-#include <smk/bit_reader.hh>
 #include <smk/types.hh>
 
 #include <array>

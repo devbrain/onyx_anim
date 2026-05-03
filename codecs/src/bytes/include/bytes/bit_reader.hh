@@ -1,19 +1,32 @@
 #pragma once
 
-// LSB-first bit reader, matching ffmpeg's `#define BITSTREAM_READER_LE` mode
-// used in libavcodec/bink.c. Within each byte the first bit returned is bit
-// 0 (LSB); when accumulating multiple bits via get_bits(n), the first
-// consumed bit becomes the LSB of the result.
+// LSB-first bit reader over a `span<const std::uint8_t>`. Within each
+// byte the first bit returned is bit 0 (LSB); when accumulating
+// multiple bits via `get_bits(n)`, the first consumed bit becomes the
+// LSB of the result.
 //
-// Header-only; the inner loop (Huffman walk, residue decode) needs to inline
-// for the decoder to be fast enough to be useful. Bounds checks are kept
-// off the hot path — callers verify bits_left() at decision points.
+// This convention matches both Smacker (ffmpeg's libavcodec/smacker.c
+// uses `#define BITSTREAM_READER_LE`) and Bink (bink.c uses the same
+// define). Both RAD codecs emit codes LSB-first within each byte, so
+// they share this reader.
+//
+// Header-only — the inner loop (Huffman walk, residue decode) needs
+// to inline for the decoder to be fast. Bounds checks stay off the
+// hot path; callers verify `bits_left()` at decision points.
+//
+// Convenience helpers:
+//   peek_bits(n)      — read N bits without advancing the cursor
+//   skip_bits(n)      — skip N bits, marking the reader as failed if
+//                       this would run past the end
+//   byte_align()      — advance to next 8-bit boundary
+//   align_to_32()     — advance to next 32-bit boundary (Bink uses
+//                       this between planes / blocks)
 
 #include <cstddef>
 #include <cstdint>
 #include <span>
 
-namespace bink {
+namespace bytes {
     class bit_reader {
         public:
             explicit bit_reader(std::span <const std::uint8_t> data) noexcept
@@ -31,7 +44,8 @@ namespace bink {
                 return bit_pos_;
             }
 
-            // Single bit, LSB-first within each byte.
+            // Single bit, LSB-first within each byte. No bounds check —
+            // caller must verify bits_left() >= 1.
             unsigned int get_bit() noexcept {
                 const auto byte_idx = bit_pos_ >> 3u;
                 if (byte_idx >= data_.size()) {
@@ -45,8 +59,8 @@ namespace bink {
             }
 
             // n-bit field; first bit consumed is the LSB of the result.
-            // n must be <= 32. Caller should verify bits_left() >= n on the
-            // hot path; this routine returns 0-padded results on overrun.
+            // n must be <= 32. Returns 0-padded results on overrun
+            // (caller checks bits_left() before driving big reads).
             unsigned int get_bits(unsigned int n) noexcept {
                 unsigned int v = 0;
                 for (unsigned int i = 0; i < n; ++i) {
@@ -55,9 +69,9 @@ namespace bink {
                 return v;
             }
 
-            // Peek up to 32 bits without consuming. Used by the VLC table
-            // lookup: we peek at the table-bits prefix, consume the actual
-            // code length after looking up.
+            // Peek up to 32 bits without consuming. Used by the VLC
+            // table lookup: peek the table-bits prefix, consume the
+            // actual code length after looking up.
             unsigned int peek_bits(unsigned int n) const noexcept {
                 std::size_t pos = bit_pos_;
                 unsigned int v = 0;
@@ -77,8 +91,10 @@ namespace bink {
                 if (bit_pos_ > data_.size() * 8u) failed_ = true;
             }
 
-            // Align cursor to next 32-bit boundary. Bink writes per-plane
-            // data flushed to a 32-bit boundary at the end of each plane.
+            void byte_align() noexcept {
+                bit_pos_ = (bit_pos_ + 7u) & ~static_cast <std::size_t>(7u);
+            }
+
             void align_to_32() noexcept {
                 bit_pos_ = (bit_pos_ + 31u) & ~static_cast <std::size_t>(31u);
             }
@@ -88,4 +104,4 @@ namespace bink {
             std::size_t bit_pos_ = 0;
             bool failed_ = false;
     };
-} // namespace bink
+} // namespace bytes
