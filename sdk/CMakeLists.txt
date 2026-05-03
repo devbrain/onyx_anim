@@ -46,5 +46,5 @@ set_target_properties(onyx_anim_sdk PROPERTIES
 target_sources(onyx_anim_sdk PRIVATE
         src/codec_registry.cc
         src/decoder.cc
-
+        src/convert.cc
 )
