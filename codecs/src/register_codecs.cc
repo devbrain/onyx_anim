@@ -5,6 +5,7 @@
 #include "smk.hh"
 #include "atari_seq.hh"
 #include "amiga_anim.hh"
+#include "cdxl.hh"
 
 namespace onyx_anim {
     void register_all_codecs(codec_registry& registry) {
@@ -12,5 +13,6 @@ namespace onyx_anim {
         registry.register_factory([] { return smk_decoder::create(); });
         registry.register_factory([] { return atari_seq_decoder::create(); });
         registry.register_factory([] { return amiga_anim_decoder::create(); });
+        registry.register_factory([] { return cdxl_decoder::create(); });
     }
 } // namespace onyx_anim

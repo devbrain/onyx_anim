@@ -6,6 +6,7 @@ add_executable(onyx_anim_tests
         test_bytes.cc
         test_flc_endtoend.cc
         test_amiga_anim_audio.cc
+        test_cdxl.cc
         flc/test_header.cc
         flc/test_chunks.cc
         flc/test_decoders.cc

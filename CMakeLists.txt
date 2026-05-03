@@ -222,6 +222,38 @@ if (NEUTRINO_ONYX_ANIM_BUILD_TESTS)
             endif ()
         endforeach ()
     endif ()
+
+    # ------------------------------------------------------------------------
+    # CDXL cross-check vs ffmpeg's libavcodec/cdxl.c
+    #
+    # Every BIT_PLANAR sample in data/cdxl/ should bit-match ffmpeg's output.
+    # The one BIT_LINE file (optologo.cdxl) is intentionally excluded — we
+    # don't decode that layout yet.
+    # ------------------------------------------------------------------------
+    set(_cdxl_data "${PROJECT_SOURCE_DIR}/data/cdxl")
+    if (FFMPEG_EXECUTABLE AND EXISTS "${_cdxl_data}")
+        set(_cdxl_supported
+            callnow.xl
+            Discovery.CDXL
+            Film.xl
+            Fruit.CDXL
+            logo.xl
+            Maku.XL
+            Spot.CDXL
+            sub.xl
+            vista1.xl
+        )
+        foreach (_name IN LISTS _cdxl_supported)
+            set(_path "${_cdxl_data}/${_name}")
+            if (EXISTS "${_path}")
+                add_test(
+                    NAME    cdxl_xcheck.${_name}
+                    COMMAND bash "${PROJECT_SOURCE_DIR}/scripts/cdxl_cross_check.sh"
+                            "${_path}" "$<TARGET_FILE:anim_to_ppm>" "${FFMPEG_EXECUTABLE}"
+                )
+            endif ()
+        endforeach ()
+    endif ()
 endif ()
 
 # ============================================================================

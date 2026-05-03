@@ -8,9 +8,10 @@
 #include <cstdint>
 
 TEST_CASE("registry has codecs registered by test_main") {
-    // test_main.cc registers FLC + SMK + atari_seq + amiga_anim at startup.
+    // test_main.cc registers FLC + SMK + atari_seq + amiga_anim + cdxl
+    // at startup.
     auto& reg = onyx_anim::codec_registry::instance();
-    CHECK(reg.factory_count() == 4);
+    CHECK(reg.factory_count() == 5);
 }
 
 TEST_CASE("registry creates flc decoder by name") {
