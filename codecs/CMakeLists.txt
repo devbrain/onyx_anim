@@ -34,6 +34,7 @@ target_link_libraries(onyx_anim_codecs
         lib_amiga_anim
         lib_cdxl
         lib_yafa
+        lib_dpan
         neutrino::failsafe
 )
 
@@ -60,6 +61,7 @@ target_sources(onyx_anim_codecs PRIVATE
         src/amiga_anim.cc
         src/cdxl.cc
         src/yafa.cc
+        src/dpan.cc
         src/register_codecs.cc
 )
 
@@ -69,3 +71,4 @@ add_subdirectory(src/atari_seq)
 add_subdirectory(src/amiga_anim)
 add_subdirectory(src/cdxl)
 add_subdirectory(src/yafa)
+add_subdirectory(src/dpan)

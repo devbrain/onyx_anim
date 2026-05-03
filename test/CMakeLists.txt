@@ -8,6 +8,7 @@ add_executable(onyx_anim_tests
         test_amiga_anim_audio.cc
         test_cdxl.cc
         test_yafa.cc
+        test_dpan.cc
         flc/test_header.cc
         flc/test_chunks.cc
         flc/test_decoders.cc

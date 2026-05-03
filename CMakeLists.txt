@@ -224,6 +224,33 @@ if (NEUTRINO_ONYX_ANIM_BUILD_TESTS)
     endif ()
 
     # ------------------------------------------------------------------------
+    # Deluxe Paint Animation cross-check vs ffmpeg's libavcodec/anm.c
+    #
+    # Only the "clean" samples (no empty records) bit-match frame-for-frame.
+    # See scripts/dpan_cross_check.sh for the rationale.
+    # ------------------------------------------------------------------------
+    set(_dpan_data "${PROJECT_SOURCE_DIR}/data/deluxe")
+    if (FFMPEG_EXECUTABLE AND EXISTS "${_dpan_data}")
+        set(_dpan_supported
+            SW.ANM
+            Vrs.anm
+            LIGHT3D.001
+            TITLES4B.001
+            abydos.lpf.anim
+        )
+        foreach (_name IN LISTS _dpan_supported)
+            set(_path "${_dpan_data}/${_name}")
+            if (EXISTS "${_path}")
+                add_test(
+                    NAME    dpan_xcheck.${_name}
+                    COMMAND bash "${PROJECT_SOURCE_DIR}/scripts/dpan_cross_check.sh"
+                            "${_path}" "$<TARGET_FILE:anim_to_ppm>" "${FFMPEG_EXECUTABLE}"
+                )
+            endif ()
+        endforeach ()
+    endif ()
+
+    # ------------------------------------------------------------------------
     # CDXL cross-check vs ffmpeg's libavcodec/cdxl.c
     #
     # Every BIT_PLANAR sample in data/cdxl/ should bit-match ffmpeg's output.
