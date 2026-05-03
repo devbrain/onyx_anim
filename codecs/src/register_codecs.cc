@@ -8,6 +8,7 @@
 #include "cdxl.hh"
 #include "yafa.hh"
 #include "dpan.hh"
+#include "bink.hh"
 
 namespace onyx_anim {
     void register_all_codecs(codec_registry& registry) {
@@ -18,5 +19,6 @@ namespace onyx_anim {
         registry.register_factory([] { return cdxl_decoder::create(); });
         registry.register_factory([] { return yafa_decoder::create(); });
         registry.register_factory([] { return dpan_decoder::create(); });
+        registry.register_factory([] { return bink_decoder::create(); });
     }
 } // namespace onyx_anim

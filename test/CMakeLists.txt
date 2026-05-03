@@ -10,6 +10,7 @@ add_executable(onyx_anim_tests
         test_yafa.cc
         test_dpan.cc
         test_smk.cc
+        test_bink.cc
         flc/test_header.cc
         flc/test_chunks.cc
         flc/test_decoders.cc

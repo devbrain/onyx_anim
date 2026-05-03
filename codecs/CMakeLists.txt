@@ -36,6 +36,7 @@ target_link_libraries(onyx_anim_codecs
         lib_yafa
         lib_dpan
         lib_smk
+        lib_bink
         neutrino::failsafe
 )
 
@@ -63,6 +64,7 @@ target_sources(onyx_anim_codecs PRIVATE
         src/cdxl.cc
         src/yafa.cc
         src/dpan.cc
+        src/bink.cc
         src/register_codecs.cc
 )
 
@@ -74,3 +76,4 @@ add_subdirectory(src/cdxl)
 add_subdirectory(src/yafa)
 add_subdirectory(src/dpan)
 add_subdirectory(src/smk)
+add_subdirectory(src/bink)

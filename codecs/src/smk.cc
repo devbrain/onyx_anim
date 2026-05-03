@@ -401,7 +401,7 @@ namespace onyx_anim {
                         for (std::size_t i = 0; i < n; ++i) {
                             const auto lo = chunk_out[i * 2];
                             const auto hi = chunk_out[i * 2 + 1];
-                            const std::int16_t s =
+                            const auto s =
                                 static_cast <std::int16_t>(
                                     static_cast <std::uint16_t>(lo) |
                                     (static_cast <std::uint16_t>(hi) << 8u));

@@ -9,9 +9,9 @@
 
 TEST_CASE("registry has codecs registered by test_main") {
     // test_main.cc registers FLC + SMK + atari_seq + amiga_anim + cdxl
-    // + yafa + dpan at startup.
+    // + yafa + dpan + bink at startup.
     auto& reg = onyx_anim::codec_registry::instance();
-    CHECK(reg.factory_count() == 7);
+    CHECK(reg.factory_count() == 8);
 }
 
 TEST_CASE("registry creates flc decoder by name") {
