@@ -79,4 +79,24 @@ namespace anim {
     /// Parse a CAMG chunk (4 bytes BE) returning the viewport-mode flags.
     [[nodiscard]] expected<std::uint32_t>
         parse_camg(std::span<const std::uint8_t> data);
+
+    // ------------------------------------------------------------------------
+    // SXHD — AnimFX sound extension header (.sndanim).
+    // 22 bytes for files with the optional 16-bit Loop trailer; some writers
+    // emit just 20.
+    // ------------------------------------------------------------------------
+
+    struct sxhd {
+        std::uint8_t  sample_depth;   ///< bits per sample; 8 in known files
+        std::uint8_t  fixed_volume;   ///< 0..64 (Amiga units)
+        std::uint32_t length;         ///< per-channel sample count per frame
+        std::uint32_t play_rate;      ///< Amiga audio period
+        std::uint32_t compression;    ///< must be 0 (uncompressed) for ANIM
+        std::uint8_t  used_channels;  ///< bitmask: 1=L, 2=R, 4=center
+        std::uint8_t  used_mode;      ///< 1=mono, 2=stereo
+        std::uint32_t play_freq;      ///< sample rate in Hz
+        std::uint16_t loop;           ///< 0 if absent or not looping
+    };
+
+    [[nodiscard]] expected<sxhd> parse_sxhd(std::span<const std::uint8_t> data);
 } // namespace anim

@@ -52,5 +52,8 @@ target_link_libraries(anim_player PRIVATE
     neutrino::onyx_image
     anim_player_imgui
     ${_SDL3_TARGET}
+    musac
+    musac_backend_sdl3
+    musac_codecs
 )
 target_compile_features(anim_player PRIVATE cxx_std_20)

@@ -3,8 +3,8 @@
 #include <cstring>
 
 namespace anim {
-    expected<std::size_t>
-    unpack_byterun1(std::span<const std::uint8_t> src,
+    expected <std::size_t>
+    unpack_byterun1(std::span <const std::uint8_t> src,
                     std::uint8_t* dst, std::size_t expected) {
         std::size_t pi = 0;
         std::size_t si = 0;
@@ -12,9 +12,8 @@ namespace anim {
             if (si >= src.size()) {
                 return make_unexpected("anim: ByteRun1 truncated at op");
             }
-            const auto op = static_cast<std::int8_t>(src[si++]);
-            if (op >= 0) {
-                const std::size_t count = static_cast<std::size_t>(op) + 1u;
+            if (const auto op = static_cast <std::int8_t>(src[si++]); op >= 0) {
+                const std::size_t count = static_cast <std::size_t>(op) + 1u;
                 if (si + count > src.size()) {
                     return make_unexpected("anim: ByteRun1 literal truncated");
                 }
@@ -25,7 +24,7 @@ namespace anim {
                 si += count;
                 pi += count;
             } else if (op != -128) {
-                const std::size_t count = static_cast<std::size_t>(-op) + 1u;
+                const std::size_t count = static_cast <std::size_t>(-op) + 1u;
                 if (si >= src.size()) {
                     return make_unexpected("anim: ByteRun1 RLE truncated at data");
                 }
@@ -41,15 +40,15 @@ namespace anim {
 
     namespace {
         std::uint32_t r32be(const std::uint8_t* p) noexcept {
-            return (static_cast<std::uint32_t>(p[0]) << 24u) |
-                   (static_cast<std::uint32_t>(p[1]) << 16u) |
-                   (static_cast<std::uint32_t>(p[2]) <<  8u) |
-                    static_cast<std::uint32_t>(p[3]);
+            return (static_cast <std::uint32_t>(p[0]) << 24u) |
+                   (static_cast <std::uint32_t>(p[1]) << 16u) |
+                   (static_cast <std::uint32_t>(p[2]) << 8u) |
+                   static_cast <std::uint32_t>(p[3]);
         }
     } // namespace
 
     result
-    apply_dlta_op5(std::span<const std::uint8_t> dlta,
+    apply_dlta_op5(std::span <const std::uint8_t> dlta,
                    std::uint8_t* fb,
                    std::size_t bytes_per_row,
                    unsigned int planes,
@@ -60,8 +59,8 @@ namespace anim {
         if (dlta.size() < kOffsetTableBytes) {
             return make_unexpected("anim: DLTA op5 too small for plane-offset table");
         }
-        const std::size_t cap      = dlta.size();
-        const auto*       base     = dlta.data();
+        const std::size_t cap = dlta.size();
+        const auto* base = dlta.data();
         // Per-row stride in the row-interleaved framebuffer: bpr bytes for
         // each plane, all planes contiguous within the row.
         const std::size_t rowpitch = bytes_per_row * planes;
@@ -83,7 +82,7 @@ namespace anim {
 
                 // Starting address of (row 0, plane p, column col) within the
                 // row-interleaved framebuffer.
-                std::size_t addr = static_cast<std::size_t>(p) * bytes_per_row + col;
+                std::size_t addr = static_cast <std::size_t>(p) * bytes_per_row + col;
                 unsigned int row = 0;
 
                 for (unsigned int i = 0; i < op_count; ++i) {
@@ -98,7 +97,7 @@ namespace anim {
                             return make_unexpected("anim: DLTA op5 long-SAME truncated");
                         }
                         const unsigned int count = base[si++];
-                        const std::uint8_t   v   = base[si++];
+                        const std::uint8_t v = base[si++];
                         for (unsigned int r = 0; r < count; ++r) {
                             if (row >= height) break;
                             fb[addr] = v;
@@ -147,16 +146,16 @@ namespace anim {
                                       unsigned int height) noexcept {
         const std::size_t rowpitch = bytes_per_row * planes;
         for (unsigned int y = 0; y < height; ++y) {
-            const std::uint8_t* src_row = planar + static_cast<std::size_t>(y) * rowpitch;
-            std::uint8_t*       dst_row = chunky + static_cast<std::size_t>(y) * chunky_stride;
+            const std::uint8_t* src_row = planar + static_cast <std::size_t>(y) * rowpitch;
+            std::uint8_t* dst_row = chunky + static_cast <std::size_t>(y) * chunky_stride;
             for (unsigned int x = 0; x < width; ++x) {
                 const std::size_t byte_off = x >> 3u;
-                const unsigned int bit     = 7u - (x & 0x7u);
+                const unsigned int bit = 7u - (x & 0x7u);
                 std::uint8_t v = 0;
                 for (unsigned int p = 0; p < planes; ++p) {
                     const std::uint8_t b = src_row[p * bytes_per_row + byte_off];
                     if (b & (1u << bit)) {
-                        v = static_cast<std::uint8_t>(v | (1u << p));
+                        v = static_cast <std::uint8_t>(v | (1u << p));
                     }
                 }
                 dst_row[x] = v;
@@ -181,33 +180,33 @@ namespace anim {
     //        + plane_index * planepitch
     // ------------------------------------------------------------------------
     result
-    apply_dlta_op3(std::span<const std::uint8_t> dlta,
+    apply_dlta_op3(std::span <const std::uint8_t> dlta,
                    std::uint8_t* fb,
                    unsigned int width,
                    unsigned int planes,
-                   std::size_t  fb_size) {
-        if (dlta.size() < static_cast<std::size_t>(planes) * 4u) {
+                   std::size_t fb_size) {
+        if (dlta.size() < static_cast <std::size_t>(planes) * 4u) {
             return make_unexpected("anim: DLTA op3 too small for plane-offset table");
         }
-        const std::size_t cap     = dlta.size();
-        const auto*       base    = dlta.data();
-        const std::size_t planepitch = ((static_cast<std::size_t>(width) + 15u) / 16u) * 2u;
-        const std::size_t pitch     = planepitch * planes;
+        const std::size_t cap = dlta.size();
+        const auto* base = dlta.data();
+        const std::size_t planepitch = ((static_cast <std::size_t>(width) + 15u) / 16u) * 2u;
+        const std::size_t pitch = planepitch * planes;
 
         auto rb16 = [&](std::size_t& si) -> int {
             if (si + 1 >= cap) return -1;
-            const auto v = static_cast<std::uint16_t>(
-                (static_cast<unsigned>(base[si]) << 8u) | base[si + 1]);
+            const auto v = static_cast <std::uint16_t>(
+                (static_cast <unsigned>(base[si]) << 8u) | base[si + 1]);
             si += 2;
-            return static_cast<int>(v);
+            return static_cast <int>(v);
         };
 
         for (unsigned int k = 0; k < planes; ++k) {
             const std::uint32_t off =
-                (static_cast<std::uint32_t>(base[k * 4 + 0]) << 24u) |
-                (static_cast<std::uint32_t>(base[k * 4 + 1]) << 16u) |
-                (static_cast<std::uint32_t>(base[k * 4 + 2]) <<  8u) |
-                 static_cast<std::uint32_t>(base[k * 4 + 3]);
+                (static_cast <std::uint32_t>(base[k * 4 + 0]) << 24u) |
+                (static_cast <std::uint32_t>(base[k * 4 + 1]) << 16u) |
+                (static_cast <std::uint32_t>(base[k * 4 + 2]) << 8u) |
+                static_cast <std::uint32_t>(base[k * 4 + 3]);
             if (off == 0) continue;
             if (off >= cap) continue;
             std::size_t si = off;
@@ -216,32 +215,32 @@ namespace anim {
                 const int raw = rb16(si);
                 if (raw < 0) return make_unexpected("anim: DLTA op3 truncated at offset");
                 if (raw == 0xFFFF) break;
-                const std::int16_t off16 = static_cast<std::int16_t>(raw);
+                const auto off16 = static_cast <std::int16_t>(raw);
                 if (off16 >= 0) {
                     const int data = rb16(si);
                     if (data < 0) return make_unexpected("anim: DLTA op3 truncated at single-data");
-                    pos += static_cast<std::size_t>(off16) * 2u;
+                    pos += static_cast <std::size_t>(off16) * 2u;
                     const std::size_t real = (pos / planepitch) * pitch +
                                              (pos % planepitch) +
-                                             static_cast<std::size_t>(k) * planepitch;
+                                             static_cast <std::size_t>(k) * planepitch;
                     if (real + 1 < fb_size) {
-                        fb[real]     = static_cast<std::uint8_t>(data >> 8);
-                        fb[real + 1] = static_cast<std::uint8_t>(data & 0xFF);
+                        fb[real] = static_cast <std::uint8_t>(data >> 8);
+                        fb[real + 1] = static_cast <std::uint8_t>(data & 0xFF);
                     }
                 } else {
                     const int count = rb16(si);
                     if (count < 0) return make_unexpected("anim: DLTA op3 truncated at run-count");
-                    pos += static_cast<std::size_t>(2 * (-(off16 + 2)));
+                    pos += static_cast <std::size_t>(2 * (-(off16 + 2)));
                     for (int i = 0; i < count; ++i) {
                         const int data = rb16(si);
                         if (data < 0) return make_unexpected("anim: DLTA op3 truncated at run data");
                         pos += 2u;
                         const std::size_t real = (pos / planepitch) * pitch +
                                                  (pos % planepitch) +
-                                                 static_cast<std::size_t>(k) * planepitch;
+                                                 static_cast <std::size_t>(k) * planepitch;
                         if (real + 1 < fb_size) {
-                            fb[real]     = static_cast<std::uint8_t>(data >> 8);
-                            fb[real + 1] = static_cast<std::uint8_t>(data & 0xFF);
+                            fb[real] = static_cast <std::uint8_t>(data >> 8);
+                            fb[real + 1] = static_cast <std::uint8_t>(data & 0xFF);
                         }
                     }
                 }
@@ -258,39 +257,44 @@ namespace anim {
             std::size_t cap;
             std::size_t pos;
         };
+
         inline int rd_u8(cursor& c) {
             if (c.pos >= c.cap) return -1;
             return c.p[c.pos++];
         }
+
         inline int rd_be16(cursor& c) {
             if (c.pos + 1 >= c.cap) return -1;
-            const auto v = static_cast<std::uint16_t>(
-                (static_cast<unsigned>(c.p[c.pos]) << 8u) | c.p[c.pos + 1]);
+            const auto v = static_cast <std::uint16_t>(
+                (static_cast <unsigned>(c.p[c.pos]) << 8u) | c.p[c.pos + 1]);
             c.pos += 2;
-            return static_cast<int>(v);
+            return static_cast <int>(v);
         }
+
         inline std::int64_t rd_be32(cursor& c) {
             if (c.pos + 3 >= c.cap) return -1;
-            const auto v = (static_cast<std::uint32_t>(c.p[c.pos]) << 24u) |
-                           (static_cast<std::uint32_t>(c.p[c.pos + 1]) << 16u) |
-                           (static_cast<std::uint32_t>(c.p[c.pos + 2]) <<  8u) |
-                            static_cast<std::uint32_t>(c.p[c.pos + 3]);
+            const auto v = (static_cast <std::uint32_t>(c.p[c.pos]) << 24u) |
+                           (static_cast <std::uint32_t>(c.p[c.pos + 1]) << 16u) |
+                           (static_cast <std::uint32_t>(c.p[c.pos + 2]) << 8u) |
+                           static_cast <std::uint32_t>(c.p[c.pos + 3]);
             c.pos += 4;
             return v;
         }
+
         inline void put_be16(std::uint8_t* fb, std::size_t off, std::size_t cap,
                              std::uint16_t v) {
             if (off + 1 >= cap) return;
-            fb[off]     = static_cast<std::uint8_t>(v >> 8);
-            fb[off + 1] = static_cast<std::uint8_t>(v & 0xFF);
+            fb[off] = static_cast <std::uint8_t>(v >> 8);
+            fb[off + 1] = static_cast <std::uint8_t>(v & 0xFF);
         }
+
         inline void put_be32(std::uint8_t* fb, std::size_t off, std::size_t cap,
                              std::uint32_t v) {
             if (off + 3 >= cap) return;
-            fb[off]     = static_cast<std::uint8_t>(v >> 24);
-            fb[off + 1] = static_cast<std::uint8_t>(v >> 16);
-            fb[off + 2] = static_cast<std::uint8_t>(v >>  8);
-            fb[off + 3] = static_cast<std::uint8_t>(v & 0xFF);
+            fb[off] = static_cast <std::uint8_t>(v >> 24);
+            fb[off + 1] = static_cast <std::uint8_t>(v >> 16);
+            fb[off + 2] = static_cast <std::uint8_t>(v >> 8);
+            fb[off + 3] = static_cast <std::uint8_t>(v & 0xFF);
         }
     } // namespace
 
@@ -306,39 +310,39 @@ namespace anim {
     // every emit writes a 16-bit BE word instead of a byte).
     // ------------------------------------------------------------------------
     result
-    apply_dlta_op7_short(std::span<const std::uint8_t> dlta,
+    apply_dlta_op7_short(std::span <const std::uint8_t> dlta,
                          std::uint8_t* fb,
                          unsigned int width,
                          unsigned int planes,
-                         std::size_t  fb_size) {
+                         std::size_t fb_size) {
         if (dlta.size() <= 64) {
             return make_unexpected("anim: DLTA op7-short too small");
         }
-        const auto*       base = dlta.data();
-        const std::size_t cap  = dlta.size();
-        const unsigned    ncolumns = (width + 15u) >> 4u;
-        const std::size_t dstpitch = static_cast<std::size_t>(ncolumns) * planes * 2u;
+        const auto* base = dlta.data();
+        const std::size_t cap = dlta.size();
+        const unsigned ncolumns = (width + 15u) >> 4u;
+        const std::size_t dstpitch = static_cast <std::size_t>(ncolumns) * planes * 2u;
 
         cursor ptrs{base, cap, 0};
         cursor dptrs{base, cap, 32};
 
         for (unsigned int k = 0; k < planes; ++k) {
-            const auto ofssrc  = rd_be32(ptrs);
+            const auto ofssrc = rd_be32(ptrs);
             const auto ofsdata = rd_be32(dptrs);
             if (ofssrc < 0 || ofsdata < 0) {
                 return make_unexpected("anim: DLTA op7-short header truncated");
             }
             if (ofssrc == 0) continue;
-            if (static_cast<std::size_t>(ofssrc) >= cap ||
-                static_cast<std::size_t>(ofsdata) >= cap) {
+            if (static_cast <std::size_t>(ofssrc) >= cap ||
+                static_cast <std::size_t>(ofsdata) >= cap) {
                 continue; // matches ffmpeg: silently skip planes with bogus offsets
             }
-            cursor gb{base, cap, static_cast<std::size_t>(ofssrc)};
-            cursor dgb{base, cap, static_cast<std::size_t>(ofsdata)};
+            cursor gb{base, cap, static_cast <std::size_t>(ofssrc)};
+            cursor dgb{base, cap, static_cast <std::size_t>(ofsdata)};
 
             for (unsigned int j = 0; j < ncolumns; ++j) {
-                std::size_t ofsdst = (static_cast<std::size_t>(j) +
-                                      static_cast<std::size_t>(k) * ncolumns) * 2u;
+                std::size_t ofsdst = (static_cast <std::size_t>(j) +
+                                      static_cast <std::size_t>(k) * ncolumns) * 2u;
                 const int op_count = rd_u8(gb);
                 if (op_count < 0) return make_unexpected("anim: op7-short col header truncated");
                 int i = op_count;
@@ -347,22 +351,22 @@ namespace anim {
                     if (op < 0) return make_unexpected("anim: op7-short op truncated");
                     if (op == 0) {
                         const int count = rd_u8(gb);
-                        const int x     = rd_be16(dgb);
+                        const int x = rd_be16(dgb);
                         if (count < 0 || x < 0) {
                             return make_unexpected("anim: op7-short SAME truncated");
                         }
                         for (int n = 0; n < count; ++n) {
-                            put_be16(fb, ofsdst, fb_size, static_cast<std::uint16_t>(x));
+                            put_be16(fb, ofsdst, fb_size, static_cast <std::uint16_t>(x));
                             ofsdst += dstpitch;
                         }
                     } else if (op < 0x80) {
-                        ofsdst += static_cast<std::size_t>(op) * dstpitch;
+                        ofsdst += static_cast <std::size_t>(op) * dstpitch;
                     } else {
                         const int count = op & 0x7F;
                         for (int n = 0; n < count; ++n) {
                             const int x = rd_be16(dgb);
                             if (x < 0) return make_unexpected("anim: op7-short UNIQUE truncated");
-                            put_be16(fb, ofsdst, fb_size, static_cast<std::uint16_t>(x));
+                            put_be16(fb, ofsdst, fb_size, static_cast <std::uint16_t>(x));
                             ofsdst += dstpitch;
                         }
                     }
@@ -380,43 +384,43 @@ namespace anim {
     // the 16-bit version of the write is used.
     // ------------------------------------------------------------------------
     result
-    apply_dlta_op7_long(std::span<const std::uint8_t> dlta,
+    apply_dlta_op7_long(std::span <const std::uint8_t> dlta,
                         std::uint8_t* fb,
                         unsigned int width,
                         unsigned int planes,
-                        std::size_t  fb_size) {
+                        std::size_t fb_size) {
         if (dlta.size() <= 64) {
             return make_unexpected("anim: DLTA op7-long too small");
         }
-        const auto*       base = dlta.data();
-        const std::size_t cap  = dlta.size();
-        const unsigned    ncolumns = (width + 31u) >> 5u;
-        const std::size_t dstpitch = (((static_cast<std::size_t>(width) + 15u) / 16u) * 2u) * planes;
-        const bool        h        = ((((width + 15u) / 16u) * 2u) !=
-                                      (((width + 31u) / 32u) * 4u));
+        const auto* base = dlta.data();
+        const std::size_t cap = dlta.size();
+        const unsigned ncolumns = (width + 31u) >> 5u;
+        const std::size_t dstpitch = (((static_cast <std::size_t>(width) + 15u) / 16u) * 2u) * planes;
+        const bool h = ((((width + 15u) / 16u) * 2u) !=
+                        (((width + 31u) / 32u) * 4u));
 
         cursor ptrs{base, cap, 0};
         cursor dptrs{base, cap, 32};
 
         for (unsigned int k = 0; k < planes; ++k) {
-            const auto ofssrc  = rd_be32(ptrs);
+            const auto ofssrc = rd_be32(ptrs);
             const auto ofsdata = rd_be32(dptrs);
             if (ofssrc < 0 || ofsdata < 0) {
                 return make_unexpected("anim: DLTA op7-long header truncated");
             }
             if (ofssrc == 0) continue;
-            if (static_cast<std::size_t>(ofssrc) >= cap ||
-                static_cast<std::size_t>(ofsdata) >= cap) {
+            if (static_cast <std::size_t>(ofssrc) >= cap ||
+                static_cast <std::size_t>(ofsdata) >= cap) {
                 continue;
             }
-            cursor gb{base, cap, static_cast<std::size_t>(ofssrc)};
-            cursor dgb{base, cap, static_cast<std::size_t>(ofsdata)};
+            cursor gb{base, cap, static_cast <std::size_t>(ofssrc)};
+            cursor dgb{base, cap, static_cast <std::size_t>(ofsdata)};
 
             for (unsigned int j = 0; j < ncolumns; ++j) {
-                std::int64_t ofsdst = static_cast<std::int64_t>(
-                    (static_cast<std::size_t>(j) +
-                     static_cast<std::size_t>(k) * ncolumns) * 4u);
-                ofsdst -= static_cast<std::int64_t>(h ? (2u * k) : 0u);
+                auto ofsdst = static_cast <std::int64_t>(
+                    (static_cast <std::size_t>(j) +
+                     static_cast <std::size_t>(k) * ncolumns) * 4u);
+                ofsdst -= static_cast <std::int64_t>(h ? (2u * k) : 0u);
                 const bool last_kludge = h && (j == (ncolumns - 1));
                 const int op_count = rd_u8(gb);
                 if (op_count < 0) return make_unexpected("anim: op7-long col header truncated");
@@ -431,25 +435,28 @@ namespace anim {
                         if (last_kludge) {
                             const int v = rd_be16(dgb);
                             if (v < 0) return make_unexpected("anim: op7-long SAME data truncated");
-                            x = static_cast<std::uint32_t>(v);
+                            x = static_cast <std::uint32_t>(v);
                             (void)rd_be16(dgb); // skip 2 bytes
                         } else {
                             const auto v = rd_be32(dgb);
                             if (v < 0) return make_unexpected("anim: op7-long SAME data truncated");
-                            x = static_cast<std::uint32_t>(v);
+                            x = static_cast <std::uint32_t>(v);
                         }
                         for (int n = 0; n < count; ++n) {
-                            if (ofsdst < 0) { ofsdst += static_cast<std::int64_t>(dstpitch); continue; }
-                            if (last_kludge) {
-                                put_be16(fb, static_cast<std::size_t>(ofsdst), fb_size,
-                                         static_cast<std::uint16_t>(x));
-                            } else {
-                                put_be32(fb, static_cast<std::size_t>(ofsdst), fb_size, x);
+                            if (ofsdst < 0) {
+                                ofsdst += static_cast <std::int64_t>(dstpitch);
+                                continue;
                             }
-                            ofsdst += static_cast<std::int64_t>(dstpitch);
+                            if (last_kludge) {
+                                put_be16(fb, static_cast <std::size_t>(ofsdst), fb_size,
+                                         static_cast <std::uint16_t>(x));
+                            } else {
+                                put_be32(fb, static_cast <std::size_t>(ofsdst), fb_size, x);
+                            }
+                            ofsdst += static_cast <std::int64_t>(dstpitch);
                         }
                     } else if (op < 0x80) {
-                        ofsdst += static_cast<std::int64_t>(op) * static_cast<std::int64_t>(dstpitch);
+                        ofsdst += static_cast <std::int64_t>(op) * static_cast <std::int64_t>(dstpitch);
                     } else {
                         const int count = op & 0x7F;
                         for (int n = 0; n < count; ++n) {
@@ -457,19 +464,19 @@ namespace anim {
                                 const int v = rd_be16(dgb);
                                 if (v < 0) return make_unexpected("anim: op7-long UNIQUE data truncated");
                                 if (ofsdst >= 0) {
-                                    put_be16(fb, static_cast<std::size_t>(ofsdst), fb_size,
-                                             static_cast<std::uint16_t>(v));
+                                    put_be16(fb, static_cast <std::size_t>(ofsdst), fb_size,
+                                             static_cast <std::uint16_t>(v));
                                 }
                                 (void)rd_be16(dgb);
                             } else {
                                 const auto v = rd_be32(dgb);
                                 if (v < 0) return make_unexpected("anim: op7-long UNIQUE data truncated");
                                 if (ofsdst >= 0) {
-                                    put_be32(fb, static_cast<std::size_t>(ofsdst), fb_size,
-                                             static_cast<std::uint32_t>(v));
+                                    put_be32(fb, static_cast <std::size_t>(ofsdst), fb_size,
+                                             static_cast <std::uint32_t>(v));
                                 }
                             }
-                            ofsdst += static_cast<std::int64_t>(dstpitch);
+                            ofsdst += static_cast <std::int64_t>(dstpitch);
                         }
                     }
                     --i;
@@ -485,18 +492,18 @@ namespace anim {
     // and opcodes themselves are 16-bit BE.
     // ------------------------------------------------------------------------
     result
-    apply_dlta_op8_short(std::span<const std::uint8_t> dlta,
+    apply_dlta_op8_short(std::span <const std::uint8_t> dlta,
                          std::uint8_t* fb,
                          unsigned int width,
                          unsigned int planes,
-                         std::size_t  fb_size) {
+                         std::size_t fb_size) {
         if (dlta.size() < 64) {
             return make_unexpected("anim: DLTA op8-short too small");
         }
-        const auto*       base = dlta.data();
-        const std::size_t cap  = dlta.size();
-        const unsigned    ncolumns = (width + 15u) >> 4u;
-        const std::size_t dstpitch = static_cast<std::size_t>(ncolumns) * planes * 2u;
+        const auto* base = dlta.data();
+        const std::size_t cap = dlta.size();
+        const unsigned ncolumns = (width + 15u) >> 4u;
+        const std::size_t dstpitch = static_cast <std::size_t>(ncolumns) * planes * 2u;
 
         cursor ptrs{base, cap, 0};
 
@@ -504,14 +511,14 @@ namespace anim {
             const auto ofssrc = rd_be32(ptrs);
             if (ofssrc < 0) return make_unexpected("anim: DLTA op8-short header truncated");
             if (ofssrc == 0) continue;
-            if (static_cast<std::size_t>(ofssrc) >= cap) {
+            if (static_cast <std::size_t>(ofssrc) >= cap) {
                 continue;
             }
-            cursor gb{base, cap, static_cast<std::size_t>(ofssrc)};
+            cursor gb{base, cap, static_cast <std::size_t>(ofssrc)};
 
             for (unsigned int j = 0; j < ncolumns; ++j) {
-                std::size_t ofsdst = (static_cast<std::size_t>(j) +
-                                      static_cast<std::size_t>(k) * ncolumns) * 2u;
+                std::size_t ofsdst = (static_cast <std::size_t>(j) +
+                                      static_cast <std::size_t>(k) * ncolumns) * 2u;
                 const int i_init = rd_be16(gb);
                 if (i_init < 0) return make_unexpected("anim: op8-short col header truncated");
                 int i = i_init;
@@ -520,22 +527,22 @@ namespace anim {
                     if (op < 0) return make_unexpected("anim: op8-short op truncated");
                     if (op == 0) {
                         const int count = rd_be16(gb);
-                        const int x     = rd_be16(gb);
+                        const int x = rd_be16(gb);
                         if (count < 0 || x < 0) {
                             return make_unexpected("anim: op8-short SAME truncated");
                         }
                         for (int n = 0; n < count; ++n) {
-                            put_be16(fb, ofsdst, fb_size, static_cast<std::uint16_t>(x));
+                            put_be16(fb, ofsdst, fb_size, static_cast <std::uint16_t>(x));
                             ofsdst += dstpitch;
                         }
                     } else if (op < 0x8000) {
-                        ofsdst += static_cast<std::size_t>(op) * dstpitch;
+                        ofsdst += static_cast <std::size_t>(op) * dstpitch;
                     } else {
                         const int count = op & 0x7FFF;
                         for (int n = 0; n < count; ++n) {
                             const int x = rd_be16(gb);
                             if (x < 0) return make_unexpected("anim: op8-short UNIQUE truncated");
-                            put_be16(fb, ofsdst, fb_size, static_cast<std::uint16_t>(x));
+                            put_be16(fb, ofsdst, fb_size, static_cast <std::uint16_t>(x));
                             ofsdst += dstpitch;
                         }
                     }
@@ -551,20 +558,20 @@ namespace anim {
     // Includes the same "h" last-column-uses-16-bit kludge as op 7 long.
     // ------------------------------------------------------------------------
     result
-    apply_dlta_op8_long(std::span<const std::uint8_t> dlta,
+    apply_dlta_op8_long(std::span <const std::uint8_t> dlta,
                         std::uint8_t* fb,
                         unsigned int width,
                         unsigned int planes,
-                        std::size_t  fb_size) {
+                        std::size_t fb_size) {
         if (dlta.size() < 64) {
             return make_unexpected("anim: DLTA op8-long too small");
         }
-        const auto*       base = dlta.data();
-        const std::size_t cap  = dlta.size();
-        const unsigned    ncolumns = (width + 31u) >> 5u;
-        const std::size_t dstpitch = (((static_cast<std::size_t>(width) + 15u) / 16u) * 2u) * planes;
-        const bool        h        = ((((width + 15u) / 16u) * 2u) !=
-                                      (((width + 31u) / 32u) * 4u));
+        const auto* base = dlta.data();
+        const std::size_t cap = dlta.size();
+        const unsigned ncolumns = (width + 31u) >> 5u;
+        const std::size_t dstpitch = (((static_cast <std::size_t>(width) + 15u) / 16u) * 2u) * planes;
+        const bool h = ((((width + 15u) / 16u) * 2u) !=
+                        (((width + 31u) / 32u) * 4u));
 
         cursor ptrs{base, cap, 0};
 
@@ -572,16 +579,16 @@ namespace anim {
             const auto ofssrc = rd_be32(ptrs);
             if (ofssrc < 0) return make_unexpected("anim: DLTA op8-long header truncated");
             if (ofssrc == 0) continue;
-            if (static_cast<std::size_t>(ofssrc) >= cap) {
+            if (static_cast <std::size_t>(ofssrc) >= cap) {
                 continue;
             }
-            cursor gb{base, cap, static_cast<std::size_t>(ofssrc)};
+            cursor gb{base, cap, static_cast <std::size_t>(ofssrc)};
 
             for (unsigned int j = 0; j < ncolumns; ++j) {
-                std::int64_t ofsdst = static_cast<std::int64_t>(
-                    (static_cast<std::size_t>(j) +
-                     static_cast<std::size_t>(k) * ncolumns) * 4u);
-                ofsdst -= static_cast<std::int64_t>(h ? (2u * k) : 0u);
+                auto ofsdst = static_cast <std::int64_t>(
+                    (static_cast <std::size_t>(j) +
+                     static_cast <std::size_t>(k) * ncolumns) * 4u);
+                ofsdst -= static_cast <std::int64_t>(h ? (2u * k) : 0u);
                 const bool last_kludge = h && (j == (ncolumns - 1));
                 const std::uint32_t skip_mask = last_kludge ? 0x8000u : 0x80000000u;
                 const std::uint32_t value_mask = skip_mask - 1u;
@@ -592,35 +599,35 @@ namespace anim {
                 while (i > 0 && (gb.cap - gb.pos) > 4) {
                     const auto op64 = rd_be32(gb);
                     if (op64 < 0) return make_unexpected("anim: op8-long op truncated");
-                    const std::uint32_t op = static_cast<std::uint32_t>(op64);
+                    const auto op = static_cast <std::uint32_t>(op64);
                     if (op == 0) {
                         std::uint32_t count, x;
                         if (last_kludge) {
                             const int c = rd_be16(gb);
                             const int v = rd_be16(gb);
                             if (c < 0 || v < 0) return make_unexpected("anim: op8-long SAME truncated");
-                            count = static_cast<std::uint32_t>(c);
-                            x     = static_cast<std::uint32_t>(v);
+                            count = static_cast <std::uint32_t>(c);
+                            x = static_cast <std::uint32_t>(v);
                         } else {
                             const auto c = rd_be32(gb);
                             const auto v = rd_be32(gb);
                             if (c < 0 || v < 0) return make_unexpected("anim: op8-long SAME truncated");
-                            count = static_cast<std::uint32_t>(c);
-                            x     = static_cast<std::uint32_t>(v);
+                            count = static_cast <std::uint32_t>(c);
+                            x = static_cast <std::uint32_t>(v);
                         }
                         for (std::uint32_t n = 0; n < count; ++n) {
                             if (ofsdst >= 0) {
                                 if (last_kludge) {
-                                    put_be16(fb, static_cast<std::size_t>(ofsdst), fb_size,
-                                             static_cast<std::uint16_t>(x));
+                                    put_be16(fb, static_cast <std::size_t>(ofsdst), fb_size,
+                                             static_cast <std::uint16_t>(x));
                                 } else {
-                                    put_be32(fb, static_cast<std::size_t>(ofsdst), fb_size, x);
+                                    put_be32(fb, static_cast <std::size_t>(ofsdst), fb_size, x);
                                 }
                             }
-                            ofsdst += static_cast<std::int64_t>(dstpitch);
+                            ofsdst += static_cast <std::int64_t>(dstpitch);
                         }
                     } else if (op < skip_mask) {
-                        ofsdst += static_cast<std::int64_t>(op) * static_cast<std::int64_t>(dstpitch);
+                        ofsdst += static_cast <std::int64_t>(op) * static_cast <std::int64_t>(dstpitch);
                     } else {
                         std::uint32_t count = op & value_mask;
                         for (std::uint32_t n = 0; n < count; ++n) {
@@ -628,18 +635,18 @@ namespace anim {
                                 const int v = rd_be16(gb);
                                 if (v < 0) return make_unexpected("anim: op8-long UNIQUE truncated");
                                 if (ofsdst >= 0) {
-                                    put_be16(fb, static_cast<std::size_t>(ofsdst), fb_size,
-                                             static_cast<std::uint16_t>(v));
+                                    put_be16(fb, static_cast <std::size_t>(ofsdst), fb_size,
+                                             static_cast <std::uint16_t>(v));
                                 }
                             } else {
                                 const auto v = rd_be32(gb);
                                 if (v < 0) return make_unexpected("anim: op8-long UNIQUE truncated");
                                 if (ofsdst >= 0) {
-                                    put_be32(fb, static_cast<std::size_t>(ofsdst), fb_size,
-                                             static_cast<std::uint32_t>(v));
+                                    put_be32(fb, static_cast <std::size_t>(ofsdst), fb_size,
+                                             static_cast <std::uint32_t>(v));
                                 }
                             }
-                            ofsdst += static_cast<std::int64_t>(dstpitch);
+                            ofsdst += static_cast <std::int64_t>(dstpitch);
                         }
                     }
                     --i;
@@ -660,30 +667,30 @@ namespace anim {
     // base offset to align with a 320-pixel-wide canvas.
     // ------------------------------------------------------------------------
     result
-    apply_dlta_opj(std::span<const std::uint8_t> dlta,
+    apply_dlta_opj(std::span <const std::uint8_t> dlta,
                    std::uint8_t* fb,
                    unsigned int width,
                    unsigned int /*height*/,
                    unsigned int planes,
-                   std::size_t  fb_size) {
-        const auto*       base = dlta.data();
-        const std::size_t cap  = dlta.size();
+                   std::size_t fb_size) {
+        const auto* base = dlta.data();
+        const std::size_t cap = dlta.size();
 
-        const std::size_t planepitch_byte = (static_cast<std::size_t>(width) + 7u) / 8u;
-        const std::size_t planepitch      = ((static_cast<std::size_t>(width) + 15u) / 16u) * 2u;
-        const std::size_t pitch           = planepitch * planes;
-        const std::size_t kludge_j        = (width < 320u) ? ((320u - width) / 8u / 2u) : 0u;
+        const std::size_t planepitch_byte = (static_cast <std::size_t>(width) + 7u) / 8u;
+        const std::size_t planepitch = ((static_cast <std::size_t>(width) + 15u) / 16u) * 2u;
+        const std::size_t pitch = planepitch * planes;
+        const std::size_t kludge_j = (width < 320u) ? ((320u - width) / 8u / 2u) : 0u;
 
         cursor gb{base, cap, 0};
 
         auto translate_offset = [&](std::uint32_t off) -> std::int64_t {
             if (kludge_j) {
-                return static_cast<std::int64_t>((off / (320u / 8u)) * pitch +
-                                                 (off % (320u / 8u))) -
-                       static_cast<std::int64_t>(kludge_j);
+                return static_cast <std::int64_t>((off / (320u / 8u)) * pitch +
+                                                  (off % (320u / 8u))) -
+                       static_cast <std::int64_t>(kludge_j);
             }
-            return static_cast<std::int64_t>((off / planepitch_byte) * pitch +
-                                             (off % planepitch_byte));
+            return static_cast <std::int64_t>((off / planepitch_byte) * pitch +
+                                              (off % planepitch_byte));
         };
 
         while ((gb.cap - gb.pos) >= 2) {
@@ -704,11 +711,11 @@ namespace anim {
                         if (raw_off < 0) {
                             return make_unexpected("anim: opJ type-1 group offset truncated");
                         }
-                        if (static_cast<std::size_t>(cols) * planes == 0 ||
-                            (gb.cap - gb.pos) < static_cast<std::size_t>(cols) * planes) {
+                        if (static_cast <std::size_t>(cols) * planes == 0 ||
+                            (gb.cap - gb.pos) < static_cast <std::size_t>(cols) * planes) {
                             return make_unexpected("anim: opJ type-1 cols*planes invalid");
                         }
-                        std::int64_t offset = translate_offset(static_cast<std::uint32_t>(raw_off));
+                        std::int64_t offset = translate_offset(static_cast <std::uint32_t>(raw_off));
                         for (int b = 0; b < cols; ++b) {
                             for (unsigned d = 0; d < planes; ++d) {
                                 const int value = rd_u8(gb);
@@ -716,27 +723,27 @@ namespace anim {
                                     return make_unexpected("anim: opJ type-1 data truncated");
                                 }
                                 if (offset >= 0 &&
-                                    static_cast<std::size_t>(offset) < fb_size) {
+                                    static_cast <std::size_t>(offset) < fb_size) {
                                     if (flag) {
-                                        fb[offset] = static_cast<std::uint8_t>(
-                                            fb[offset] ^ static_cast<std::uint8_t>(value));
+                                        fb[offset] = static_cast <std::uint8_t>(
+                                            fb[offset] ^ static_cast <std::uint8_t>(value));
                                     } else {
-                                        fb[offset] = static_cast<std::uint8_t>(value);
+                                        fb[offset] = static_cast <std::uint8_t>(value);
                                     }
                                 }
-                                offset += static_cast<std::int64_t>(planepitch);
+                                offset += static_cast <std::int64_t>(planepitch);
                             }
                         }
-                        if ((static_cast<std::size_t>(cols) * planes) & 1u) {
+                        if ((static_cast <std::size_t>(cols) * planes) & 1u) {
                             (void)rd_u8(gb); // alignment padding
                         }
                     }
                     break;
                 }
                 case 2: {
-                    const int flag   = rd_be16(gb);
-                    const int rows   = rd_be16(gb);
-                    const int bytes  = rd_be16(gb);
+                    const int flag = rd_be16(gb);
+                    const int rows = rd_be16(gb);
+                    const int bytes = rd_be16(gb);
                     const int groups = rd_be16(gb);
                     if (flag < 0 || rows < 0 || bytes < 0 || groups < 0) {
                         return make_unexpected("anim: opJ type-2 header truncated");
@@ -746,13 +753,15 @@ namespace anim {
                         if (raw_off < 0) {
                             return make_unexpected("anim: opJ type-2 group offset truncated");
                         }
-                        std::int64_t offset = translate_offset(static_cast<std::uint32_t>(raw_off));
+                        std::int64_t offset = translate_offset(static_cast <std::uint32_t>(raw_off));
                         for (int r = 0; r < rows; ++r) {
                             for (unsigned d = 0; d < planes; ++d) {
                                 std::int64_t noffset = offset +
-                                    static_cast<std::int64_t>(r) * static_cast<std::int64_t>(pitch) +
-                                    static_cast<std::int64_t>(d) * static_cast<std::int64_t>(planepitch);
-                                if (bytes == 0 || (gb.cap - gb.pos) < static_cast<std::size_t>(bytes)) {
+                                                       static_cast <std::int64_t>(r) * static_cast <std::int64_t>(pitch)
+                                                       +
+                                                       static_cast <std::int64_t>(d) * static_cast <std::int64_t>(
+                                                           planepitch);
+                                if (bytes == 0 || (gb.cap - gb.pos) < static_cast <std::size_t>(bytes)) {
                                     return make_unexpected("anim: opJ type-2 bytes invalid");
                                 }
                                 for (int b = 0; b < bytes; ++b) {
@@ -761,19 +770,19 @@ namespace anim {
                                         return make_unexpected("anim: opJ type-2 data truncated");
                                     }
                                     if (noffset >= 0 &&
-                                        static_cast<std::size_t>(noffset) < fb_size) {
+                                        static_cast <std::size_t>(noffset) < fb_size) {
                                         if (flag) {
-                                            fb[noffset] = static_cast<std::uint8_t>(
-                                                fb[noffset] ^ static_cast<std::uint8_t>(value));
+                                            fb[noffset] = static_cast <std::uint8_t>(
+                                                fb[noffset] ^ static_cast <std::uint8_t>(value));
                                         } else {
-                                            fb[noffset] = static_cast<std::uint8_t>(value);
+                                            fb[noffset] = static_cast <std::uint8_t>(value);
                                         }
                                     }
                                     ++noffset;
                                 }
                             }
                         }
-                        if ((static_cast<std::size_t>(rows) * static_cast<std::size_t>(bytes) * planes) & 1u) {
+                        if ((static_cast <std::size_t>(rows) * static_cast <std::size_t>(bytes) * planes) & 1u) {
                             (void)rd_u8(gb);
                         }
                     }
@@ -816,23 +825,23 @@ namespace anim {
     //   addr   = row * pitch + colbyt + k * planepitch
     // ------------------------------------------------------------------------
     result
-    apply_dlta_op_l(std::span<const std::uint8_t> dlta,
+    apply_dlta_op_l(std::span <const std::uint8_t> dlta,
                     std::uint8_t* fb,
                     unsigned int width,
                     unsigned int planes,
-                    bool         is_short,
-                    std::size_t  fb_size) {
+                    bool is_short,
+                    std::size_t fb_size) {
         if (dlta.size() <= 64) {
             return make_unexpected("anim: DLTA opL too small");
         }
-        const auto*       base = dlta.data();
-        const std::size_t cap  = dlta.size();
+        const auto* base = dlta.data();
+        const std::size_t cap = dlta.size();
 
         const std::size_t planepitch_byte =
-            (static_cast<std::size_t>(width) + 7u) / 8u;
+            (static_cast <std::size_t>(width) + 7u) / 8u;
         const std::size_t planepitch =
-            ((static_cast<std::size_t>(width) + 15u) / 16u) * 2u;
-        const std::size_t pitch    = planepitch * planes;
+            ((static_cast <std::size_t>(width) + 15u) / 16u) * 2u;
+        const std::size_t pitch = planepitch * planes;
         const std::size_t dstpitch = is_short ? (planepitch_byte * planes) : 2u;
 
         if (planepitch_byte == 0) {
@@ -846,7 +855,7 @@ namespace anim {
 
         for (unsigned int k = 0; k < planes; ++k) {
             const auto poff_data = rd_be32(dptrs);
-            const auto poff_ops  = rd_be32(optrs);
+            const auto poff_ops = rd_be32(optrs);
             if (poff_data < 0 || poff_ops < 0) {
                 return make_unexpected("anim: opL plane offset table truncated");
             }
@@ -855,8 +864,8 @@ namespace anim {
             // Word offsets → byte offsets (×2). Bail on out-of-range to mirror
             // ffmpeg behaviour (it returns silently rather than failing the
             // whole frame; stay strict here so problems are visible).
-            const std::size_t data_pos = static_cast<std::size_t>(poff_data) * 2u;
-            const std::size_t ops_pos  = static_cast<std::size_t>(poff_ops)  * 2u;
+            const std::size_t data_pos = static_cast <std::size_t>(poff_data) * 2u;
+            const std::size_t ops_pos = static_cast <std::size_t>(poff_ops) * 2u;
             if (data_pos >= cap || ops_pos >= cap) {
                 return make_unexpected("anim: opL plane stream offset past end");
             }
@@ -867,8 +876,8 @@ namespace anim {
             // Walk records until the terminator (peek == 0xFFFF) or stream end.
             for (;;) {
                 if (ogb.pos + 4u > ogb.cap) break;
-                const std::uint16_t peek = static_cast<std::uint16_t>(
-                    (static_cast<unsigned>(ogb.p[ogb.pos]) << 8u) |
+                const auto peek = static_cast <std::uint16_t>(
+                    (static_cast <unsigned>(ogb.p[ogb.pos]) << 8u) |
                     ogb.p[ogb.pos + 1]);
                 if (peek == 0xFFFFu) break;
 
@@ -877,22 +886,22 @@ namespace anim {
                 if (raw_off < 0 || raw_cnt < 0) {
                     return make_unexpected("anim: opL record truncated");
                 }
-                const std::int16_t cnt =
-                    static_cast<std::int16_t>(static_cast<std::uint16_t>(raw_cnt));
+                const auto cnt =
+                    static_cast <std::int16_t>(static_cast <std::uint16_t>(raw_cnt));
 
                 const std::size_t off_bytes_in_plane =
-                    static_cast<std::size_t>(raw_off) * 2u;
-                const std::size_t row    = off_bytes_in_plane / planepitch_byte;
+                    static_cast <std::size_t>(raw_off) * 2u;
+                const std::size_t row = off_bytes_in_plane / planepitch_byte;
                 const std::size_t colbyt = off_bytes_in_plane % planepitch_byte;
                 std::size_t addr =
-                    row * pitch + colbyt + static_cast<std::size_t>(k) * planepitch;
+                    row * pitch + colbyt + static_cast <std::size_t>(k) * planepitch;
 
                 if (cnt < 0) {
                     const int data = rd_be16(dgb);
                     if (data < 0) return make_unexpected("anim: opL run datum truncated");
-                    const int reps = -static_cast<int>(cnt);
+                    const int reps = -static_cast <int>(cnt);
                     for (int i = 0; i < reps; ++i) {
-                        put_be16(fb, addr, fb_size, static_cast<std::uint16_t>(data));
+                        put_be16(fb, addr, fb_size, static_cast <std::uint16_t>(data));
                         addr += dstpitch;
                     }
                 } else {
@@ -901,10 +910,228 @@ namespace anim {
                         if (data < 0) {
                             return make_unexpected("anim: opL literal data truncated");
                         }
-                        put_be16(fb, addr, fb_size, static_cast<std::uint16_t>(data));
+                        put_be16(fb, addr, fb_size, static_cast <std::uint16_t>(data));
                         addr += dstpitch;
                     }
                 }
+            }
+        }
+        return {};
+    }
+
+    // ------------------------------------------------------------------------
+    // Op D (0x64 / 100). Mirrors ffmpeg's `decode_delta_d` (libavcodec/iff.c).
+    //
+    // Header: `planes` longwords (4 bytes each) — per-plane byte offsets into
+    // the chunk where that plane's stream lives.
+    //
+    // Per plane k:
+    //   u32 entries
+    //   entries × (s32 opcode, u32 offset)
+    //     write address = (offset / planepitch_byte) * pitch
+    //                   + (offset % planepitch_byte) + k * planepitch
+    //     opcode > 0 : read one u32 datum, write `opcode` copies stepping pitch
+    //     opcode < 0 : read |opcode| u32 literals, stepping pitch each
+    // ------------------------------------------------------------------------
+    result
+    apply_dlta_op_d(std::span <const std::uint8_t> dlta,
+                    std::uint8_t* fb,
+                    unsigned int width,
+                    unsigned int planes,
+                    std::size_t fb_size) {
+        if (planes == 0) return {};
+        if (dlta.size() <= static_cast <std::size_t>(planes) * 4u) {
+            return make_unexpected("anim: DLTA opD too small");
+        }
+        const auto* base = dlta.data();
+        const std::size_t cap = dlta.size();
+
+        const std::size_t planepitch_byte =
+            (static_cast <std::size_t>(width) + 7u) / 8u;
+        const std::size_t planepitch =
+            ((static_cast <std::size_t>(width) + 15u) / 16u) * 2u;
+        const std::size_t pitch = planepitch * planes;
+        if (planepitch_byte == 0) {
+            return make_unexpected("anim: opD zero plane pitch");
+        }
+
+        cursor ptrs{base, cap, 0};
+
+        for (unsigned int k = 0; k < planes; ++k) {
+            const auto ofssrc = rd_be32(ptrs);
+            if (ofssrc < 0) {
+                return make_unexpected("anim: opD plane offset table truncated");
+            }
+            if (ofssrc == 0) continue;
+            if (static_cast <std::size_t>(ofssrc) >= cap) continue;
+
+            cursor gb{base, cap, static_cast <std::size_t>(ofssrc)};
+            const auto entries_raw = rd_be32(gb);
+            if (entries_raw < 0) {
+                return make_unexpected("anim: opD entries header truncated");
+            }
+            auto entries = static_cast <std::uint32_t>(entries_raw);
+
+            // Bound check: each entry needs >= 8 bytes (opcode+offset);
+            // run/literal payloads add more.
+            if (static_cast <std::size_t>(entries) * 8u > (gb.cap - gb.pos)) {
+                return make_unexpected("anim: opD entries count exceeds chunk");
+            }
+
+            while (entries && (gb.cap - gb.pos) >= 8u) {
+                const auto op_raw = rd_be32(gb);
+                const auto off_raw = rd_be32(gb);
+                if (op_raw < 0 || off_raw < 0) {
+                    return make_unexpected("anim: opD record truncated");
+                }
+                const auto opcode =
+                    static_cast <std::int32_t>(static_cast <std::uint32_t>(op_raw));
+                const auto offset = static_cast <std::uint32_t>(off_raw);
+
+                const std::size_t row =
+                    static_cast <std::size_t>(offset) / planepitch_byte;
+                const std::size_t colbyt =
+                    static_cast <std::size_t>(offset) % planepitch_byte;
+                std::size_t addr =
+                    row * pitch + colbyt + static_cast <std::size_t>(k) * planepitch;
+
+                if (opcode >= 0) {
+                    if ((gb.cap - gb.pos) < 4u) {
+                        return make_unexpected("anim: opD run datum truncated");
+                    }
+                    const auto x_raw = rd_be32(gb);
+                    if (x_raw < 0) {
+                        return make_unexpected("anim: opD run datum truncated");
+                    }
+                    const auto x = static_cast <std::uint32_t>(x_raw);
+                    // Mirror ffmpeg's sanity check: skip records whose run
+                    // would overflow the destination starting from `addr`.
+                    if (opcode > 0 && addr + 4u + static_cast <std::size_t>(opcode - 1) * pitch
+                        > fb_size) {
+                        --entries;
+                        continue;
+                    }
+                    int32_t n = opcode;
+                    while (n > 0 && addr < fb_size) {
+                        put_be32(fb, addr, fb_size, x);
+                        addr += pitch;
+                        --n;
+                    }
+                } else {
+                    int32_t n = -opcode;
+                    while (n > 0 && (gb.cap - gb.pos) >= 4u) {
+                        const auto v_raw = rd_be32(gb);
+                        if (v_raw < 0) {
+                            return make_unexpected("anim: opD literal truncated");
+                        }
+                        if (addr < fb_size) {
+                            put_be32(fb, addr, fb_size,
+                                     static_cast <std::uint32_t>(v_raw));
+                        }
+                        addr += pitch;
+                        --n;
+                    }
+                }
+                --entries;
+            }
+        }
+        return {};
+    }
+
+    // ------------------------------------------------------------------------
+    // Op E (0x65 / 101). Mirrors ffmpeg's `decode_delta_e` (libavcodec/iff.c).
+    //
+    // Like op D but 16-bit-data: `entries` is u16, opcode is s16, payload is
+    // u16. opcode > 0 → run of `opcode` copies of one u16; opcode < 0 →
+    // `|opcode|` literal u16 values. Writes step by full row pitch.
+    // ------------------------------------------------------------------------
+    result
+    apply_dlta_op_e(std::span <const std::uint8_t> dlta,
+                    std::uint8_t* fb,
+                    unsigned int width,
+                    unsigned int planes,
+                    std::size_t fb_size) {
+        if (planes == 0) return {};
+        if (dlta.size() <= static_cast <std::size_t>(planes) * 4u) {
+            return make_unexpected("anim: DLTA opE too small");
+        }
+        const auto* base = dlta.data();
+        const std::size_t cap = dlta.size();
+
+        const std::size_t planepitch_byte =
+            (static_cast <std::size_t>(width) + 7u) / 8u;
+        const std::size_t planepitch =
+            ((static_cast <std::size_t>(width) + 15u) / 16u) * 2u;
+        const std::size_t pitch = planepitch * planes;
+        if (planepitch_byte == 0) {
+            return make_unexpected("anim: opE zero plane pitch");
+        }
+
+        cursor ptrs{base, cap, 0};
+
+        for (unsigned int k = 0; k < planes; ++k) {
+            const auto ofssrc = rd_be32(ptrs);
+            if (ofssrc < 0) {
+                return make_unexpected("anim: opE plane offset table truncated");
+            }
+            if (ofssrc == 0) continue;
+            if (static_cast <std::size_t>(ofssrc) >= cap) continue;
+
+            cursor gb{base, cap, static_cast <std::size_t>(ofssrc)};
+            const auto entries_raw = rd_be16(gb);
+            if (entries_raw < 0) {
+                return make_unexpected("anim: opE entries header truncated");
+            }
+            auto entries = static_cast <std::uint16_t>(entries_raw);
+
+            while (entries && (gb.cap - gb.pos) >= 6u) {
+                const auto op_raw = rd_be16(gb);
+                const auto off_raw = rd_be32(gb);
+                if (op_raw < 0 || off_raw < 0) {
+                    return make_unexpected("anim: opE record truncated");
+                }
+                const auto opcode =
+                    static_cast <std::int16_t>(static_cast <std::uint16_t>(op_raw));
+                const auto offset = static_cast <std::uint32_t>(off_raw);
+
+                const std::size_t row =
+                    static_cast <std::size_t>(offset) / planepitch_byte;
+                const std::size_t colbyt =
+                    static_cast <std::size_t>(offset) % planepitch_byte;
+                std::size_t addr =
+                    row * pitch + colbyt + static_cast <std::size_t>(k) * planepitch;
+
+                if (opcode >= 0) {
+                    if ((gb.cap - gb.pos) < 2u) {
+                        return make_unexpected("anim: opE run datum truncated");
+                    }
+                    const auto x_raw = rd_be16(gb);
+                    if (x_raw < 0) {
+                        return make_unexpected("anim: opE run datum truncated");
+                    }
+                    const auto x = static_cast <std::uint16_t>(x_raw);
+                    int16_t n = opcode;
+                    while (n > 0 && addr < fb_size) {
+                        put_be16(fb, addr, fb_size, x);
+                        addr += pitch;
+                        --n;
+                    }
+                } else {
+                    auto n = static_cast <std::int16_t>(-opcode);
+                    while (n > 0 && (gb.cap - gb.pos) >= 2u) {
+                        const auto v_raw = rd_be16(gb);
+                        if (v_raw < 0) {
+                            return make_unexpected("anim: opE literal truncated");
+                        }
+                        if (addr < fb_size) {
+                            put_be16(fb, addr, fb_size,
+                                     static_cast <std::uint16_t>(v_raw));
+                        }
+                        addr += pitch;
+                        --n;
+                    }
+                }
+                --entries;
             }
         }
         return {};

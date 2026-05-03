@@ -5,6 +5,7 @@ add_executable(onyx_anim_tests
         test_expected.cc
         test_bytes.cc
         test_flc_endtoend.cc
+        test_amiga_anim_audio.cc
         flc/test_header.cc
         flc/test_chunks.cc
         flc/test_decoders.cc
@@ -16,6 +17,10 @@ target_link_libraries(onyx_anim_tests PRIVATE
         lib_flc
         lib_bytes
         doctest::doctest
+)
+
+target_compile_definitions(onyx_anim_tests PRIVATE
+        NEUTRINO_ONYX_ANIM_DATA_DIR="${PROJECT_SOURCE_DIR}/data"
 )
 
 target_compile_features(onyx_anim_tests PRIVATE cxx_std_20)

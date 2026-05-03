@@ -21,4 +21,8 @@ namespace onyx_anim {
     std::unique_ptr<musac::decoder> anim_decoder::take_audio_track([[maybe_unused]] unsigned int index) {
         return nullptr;
     }
+
+    std::span<const audio_event> anim_decoder::pending_audio_events() const noexcept {
+        return {};
+    }
 }

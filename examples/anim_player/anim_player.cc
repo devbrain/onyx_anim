@@ -16,13 +16,23 @@
 #include <onyx_anim/sdk/decoder.hh>
 #include <onyx_anim/codecs/register_codecs.hh>
 #include <onyx_image/surface.hpp>
+
+#include <musac/audio_device.hh>
+#include <musac/audio_source.hh>
+#include <musac/audio_system.hh>
+#include <musac/stream.hh>
+#include <musac/codecs/register_codecs.hh>
+#include <musac/sdk/decoder.hh>
+#include <musac/sdk/decoders_registry.hh>
 #include <musac/sdk/io_stream.hh>
+#include <musac_backends/sdl3/sdl3_backend.hh>
 
 #include <chrono>
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
 #include <memory>
+#include <optional>
 #include <span>
 #include <string>
 #include <vector>
@@ -43,6 +53,16 @@ struct anim_state {
     double                                      accumulator_us = 0.0;
     std::string                                 source_path;
     std::string                                 status; // last error or info text
+
+    // Audio: optional musac stream tied to the demuxer's first audio track.
+    // Lifetime is bounded by anim_state — destroying the stream stops audio.
+    std::optional<musac::audio_stream>          audio_stream;
+
+    // Per-frame event-driven audio (ANIM+SLA): one short-lived stream per
+    // SCTL trigger. Streams that have finished are pruned each tick. Capped
+    // to keep runaway repeat-loops from exhausting the audio device.
+    std::vector<musac::audio_stream>            event_streams;
+    static constexpr std::size_t                kMaxEventStreams = 16;
 };
 
 void destroy_texture(anim_state& a) {
@@ -111,7 +131,41 @@ void upload_current_frame(anim_state& a, SDL_Renderer* r) {
                       a.surf.width() * 4);
 }
 
-bool open_path(anim_state& a, SDL_Renderer* r, const char* path) {
+void fire_pending_audio_events(anim_state& a, musac::audio_device* device);
+
+// Build a tiny dummy io_stream for audio_source. Our decoder ignores the
+// io_stream (it owns a pre-loaded PCM buffer) but audio_source::open()
+// requires a non-null one.
+std::unique_ptr<musac::io_stream> dummy_io_stream() {
+    static const std::uint8_t kEmpty[1] = {0};
+    return musac::io_from_memory(kEmpty, sizeof(kEmpty));
+}
+
+void start_audio_track(anim_state& a, musac::audio_device* device) {
+    a.audio_stream.reset(); // stop/destroy any previous stream
+    if (!device || !a.decoder) return;
+    if (a.decoder->audio_track_count() == 0u) return;
+    auto track = a.decoder->take_audio_track(0u);
+    if (!track) return;
+    try {
+        musac::audio_source src{std::move(track), dummy_io_stream()};
+        a.audio_stream.emplace(device->create_stream(std::move(src)));
+        a.audio_stream->play();
+    } catch (const std::exception& ex) {
+        a.status = std::string("audio init failed: ") + ex.what();
+        a.audio_stream.reset();
+    }
+}
+
+bool open_path(anim_state& a, SDL_Renderer* r,
+               musac::audio_device* device, const char* path) {
+    // Drop existing streams BEFORE the old decoder goes away — the audio
+    // threads read through state we'd be destroying. event_streams are
+    // independent of the decoder (they own their own io+decoder) but we
+    // tear them down anyway since they belong to the previous animation.
+    a.audio_stream.reset();
+    a.event_streams.clear();
+
     a.stream = musac::io_from_file(path, "rb");
     if (!a.stream) {
         a.status = std::string("cannot open: ") + path;
@@ -138,19 +192,64 @@ bool open_path(anim_state& a, SDL_Renderer* r, const char* path) {
     }
     upload_current_frame(a, r);
     a.status = path;
+    start_audio_track(a, device);
+    fire_pending_audio_events(a, device);
     return true;
 }
 
-bool advance_one(anim_state& a, SDL_Renderer* r) {
+// Spawn a short-lived musac stream for each event triggered by the
+// just-decoded frame (event-driven audio, e.g. ANIM+SLA SCTL chunks).
+// Drops finished streams to keep the active set bounded.
+void fire_pending_audio_events(anim_state& a, musac::audio_device* device) {
+    if (!device || !a.decoder) return;
+
+    // Prune streams that have finished playing.
+    std::erase_if(a.event_streams,
+                  [](const musac::audio_stream& s) { return !s.is_playing(); });
+
+    const auto events = a.decoder->pending_audio_events();
+    for (const auto& ev : events) {
+        if (!ev.sound_bytes || ev.sound_bytes->empty()) continue;
+        if (a.event_streams.size() >= anim_state::kMaxEventStreams) break;
+        try {
+            auto io = musac::io_from_memory(ev.sound_bytes->data(),
+                                            ev.sound_bytes->size());
+            // Format-agnostic: musac auto-detects via the global decoders
+            // registry installed at audio_system::init(). The player stays
+            // codec-neutral; new container types just need their decoder
+            // registered with musac.
+            musac::audio_source src{std::move(io)};
+            auto stream = device->create_stream(std::move(src));
+            // SCTL.repeats == 0 means loop forever; map to 0 for musac too.
+            const int iterations = ev.repeats == 0u ? 0 : ev.repeats;
+            stream.play(iterations, std::chrono::microseconds{});
+            a.event_streams.push_back(std::move(stream));
+        } catch (const std::exception&) {
+            // Best-effort: a malformed sample shouldn't kill playback.
+        }
+    }
+}
+
+bool advance_one(anim_state& a, SDL_Renderer* r,
+                 musac::audio_device* device) {
     if (!a.decoder) return false;
     if (a.decoder->eof()) {
-        if (!a.loop) { a.playing = false; return false; }
+        if (!a.loop) {
+            a.playing = false;
+            // Audio stream will naturally finish when its buffer drains.
+            return false;
+        }
         if (!a.decoder->rewind()) {
             a.status = "rewind failed";
             a.playing = false;
             return false;
         }
         a.frame_index = 0;
+        // rewind() atomically reset the audio cursor back to 0; if the audio
+        // stream had already stopped at end-of-buffer, kick it back into life.
+        if (a.audio_stream && !a.audio_stream->is_playing()) {
+            a.audio_stream->play();
+        }
     }
     auto fr = a.decoder->decode_frame(a.surf);
     if (!fr) {
@@ -160,6 +259,7 @@ bool advance_one(anim_state& a, SDL_Renderer* r) {
     }
     a.frame_index = fr->index;
     upload_current_frame(a, r);
+    fire_pending_audio_events(a, device);
     return true;
 }
 
@@ -174,13 +274,37 @@ void seek_to(anim_state& a, SDL_Renderer* r, unsigned int idx) {
     a.frame_index = fr->index;
     upload_current_frame(a, r);
     a.accumulator_us = 0.0;
+    // The decoder atomically rewrote the audio cursor inside seek_to_frame;
+    // if the audio stream had stopped (end-of-stream after a previous play
+    // through), re-arm playback so it picks up at the new cursor.
+    if (a.audio_stream && !a.audio_stream->is_playing()) {
+        a.audio_stream->play();
+    }
+}
+
+void set_playing(anim_state& a, bool play) {
+    a.playing = play;
+    if (a.audio_stream) {
+        if (play) {
+            if (!a.audio_stream->is_playing()) a.audio_stream->play();
+            else                               a.audio_stream->resume();
+        } else {
+            a.audio_stream->pause();
+        }
+    }
+    // Event-driven streams are short-lived one-shots: pause stops them,
+    // resume just lets new triggers fire on subsequent decoded frames.
+    for (auto& s : a.event_streams) {
+        if (play) s.resume();
+        else      s.pause();
+    }
 }
 
 } // namespace
 
 int main(int argc, char* argv[]) {
     SDL_SetMainReady();
-    if (!SDL_Init(SDL_INIT_VIDEO)) {
+    if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO)) {
         std::fprintf(stderr, "SDL_Init: %s\n", SDL_GetError());
         return 1;
     }
@@ -206,9 +330,32 @@ int main(int argc, char* argv[]) {
 
     onyx_anim::register_all_codecs(onyx_anim::codec_registry::instance());
 
+    // Audio: optional. If musac fails (e.g. no audio device on a CI box),
+    // keep going with video only. We install a registry pre-populated with
+    // every musac codec so format-agnostic audio_source(io_stream) can
+    // auto-detect anything an anim_decoder hands us via audio events.
+    std::shared_ptr<musac::audio_backend>      audio_backend{};
+    std::shared_ptr<musac::decoders_registry>  audio_registry{};
+    std::optional<musac::audio_device>         audio_device{};
+    try {
+        audio_backend  = std::shared_ptr<musac::audio_backend>(
+            musac::create_sdl3_backend());
+        audio_registry = musac::create_registry_with_all_codecs();
+        if (musac::audio_system::init(audio_backend, audio_registry)) {
+            audio_device.emplace(
+                musac::audio_device::open_default_device(audio_backend));
+        }
+    } catch (const std::exception& ex) {
+        std::fprintf(stderr,
+                     "audio init failed (continuing without audio): %s\n",
+                     ex.what());
+        audio_device.reset();
+    }
+    musac::audio_device* device = audio_device ? &*audio_device : nullptr;
+
     anim_state st;
     if (argc >= 2) {
-        if (!open_path(st, renderer, argv[1])) {
+        if (!open_path(st, renderer, device, argv[1])) {
             std::fprintf(stderr, "%s\n", st.status.c_str());
         }
     } else {
@@ -230,11 +377,16 @@ int main(int argc, char* argv[]) {
                         running = false;
                     break;
                 case SDL_EVENT_DROP_FILE:
-                    if (e.drop.data) open_path(st, renderer, e.drop.data);
+                    if (e.drop.data) open_path(st, renderer, device, e.drop.data);
                     break;
                 case SDL_EVENT_KEY_DOWN:
-                    if (e.key.key == SDLK_SPACE) st.playing = !st.playing;
-                    if (e.key.key == SDLK_R)     { if (st.decoder) seek_to(st, renderer, 0); }
+                    if (e.key.key == SDLK_SPACE) set_playing(st, !st.playing);
+                    if (e.key.key == SDLK_R)     {
+                        if (st.decoder) {
+                            seek_to(st, renderer, 0);
+                            set_playing(st, true);
+                        }
+                    }
                     break;
                 default: break;
             }
@@ -251,7 +403,7 @@ int main(int argc, char* argv[]) {
                 st.accumulator_us += static_cast<double>(delta_us);
                 while (st.playing && st.accumulator_us >= static_cast<double>(period_us)) {
                     st.accumulator_us -= static_cast<double>(period_us);
-                    if (!advance_one(st, renderer)) break;
+                    if (!advance_one(st, renderer, device)) break;
                 }
             }
         }
@@ -279,16 +431,23 @@ int main(int argc, char* argv[]) {
                 : 0.0;
             ImGui::Text("Period: %lld us  (%.2f fps)",
                         static_cast<long long>(info.frame_period.count()), fps);
+            if (info.audio_track_count > 0u) {
+                ImGui::Text("Audio:  %u Hz, %u ch%s",
+                            info.audio_rate, info.audio_channels,
+                            st.audio_stream ? "" : " (no device)");
+            } else {
+                ImGui::TextDisabled("Audio:  none");
+            }
 
             ImGui::Separator();
 
             if (ImGui::Button(st.playing ? "Pause" : "Play")) {
-                st.playing = !st.playing;
+                set_playing(st, !st.playing);
             }
             ImGui::SameLine();
             if (ImGui::Button("Restart")) {
                 seek_to(st, renderer, 0);
-                st.playing = true;
+                set_playing(st, true);
             }
             ImGui::SameLine();
             ImGui::Checkbox("Loop", &st.loop);
@@ -298,7 +457,7 @@ int main(int argc, char* argv[]) {
                 ? static_cast<int>(info.frame_count - 1) : 0;
             if (ImGui::SliderInt("Frame", &current, 0, last)) {
                 seek_to(st, renderer, static_cast<unsigned int>(current));
-                st.playing = false;
+                set_playing(st, false);
             }
         } else {
             ImGui::TextWrapped("No file loaded.");
@@ -338,6 +497,14 @@ int main(int argc, char* argv[]) {
         ImGui_ImplSDLRenderer3_RenderDrawData(ImGui::GetDrawData(), renderer);
         SDL_RenderPresent(renderer);
     }
+
+    // Destroy all audio streams + decoder before tearing down the audio
+    // device (musac stream lifetime must end before its parent device).
+    st.event_streams.clear();
+    st.audio_stream.reset();
+    st.decoder.reset();
+    audio_device.reset();
+    musac::audio_system::done();
 
     destroy_texture(st);
     ImGui_ImplSDLRenderer3_Shutdown();

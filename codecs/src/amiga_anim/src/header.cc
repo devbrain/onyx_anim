@@ -80,6 +80,31 @@ namespace anim {
         return out;
     }
 
+    expected<sxhd>
+    parse_sxhd(std::span<const std::uint8_t> data) {
+        // Body must hold the 20 fixed bytes; the 2-byte Loop trailer is optional.
+        if (data.size() < 20) {
+            return make_unexpected("anim: SXHD truncated (need >= 20 bytes)");
+        }
+        byte_reader br{data};
+        sxhd h{};
+        br >> h.sample_depth
+           >> h.fixed_volume
+           >> h.length
+           >> h.play_rate
+           >> h.compression
+           >> h.used_channels
+           >> h.used_mode
+           >> h.play_freq;
+        if (data.size() >= 22u) {
+            br >> h.loop;
+        }
+        if (!br) {
+            return make_unexpected("anim: SXHD truncated mid-read");
+        }
+        return h;
+    }
+
     expected<std::uint32_t>
     parse_camg(std::span<const std::uint8_t> data) {
         if (data.size() < 4) {

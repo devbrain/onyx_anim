@@ -102,6 +102,32 @@ namespace anim {
                         bool          is_short,
                         std::size_t   fb_size);
 
+    /// Op D (0x64 / 100) — Scala/InfoChannel ANIM32. Header is `planes`
+    /// longwords of per-plane byte-offsets into the chunk. Each plane
+    /// stream begins with a u32 `entries` count, followed by `entries`
+    /// records of (s32 opcode, u32 offset). `offset` is a byte position
+    /// within the plane; the write address is computed identically to op
+    /// L. opcode > 0 → run of `opcode` copies of one u32 value; opcode < 0
+    /// → `|opcode|` literal u32 values. Writes step by full row pitch.
+    /// Caller must reject the interlaced flag.
+    [[nodiscard]] result
+        apply_dlta_op_d(std::span<const std::uint8_t> dlta,
+                        std::uint8_t* fb,
+                        unsigned int  width,
+                        unsigned int  planes,
+                        std::size_t   fb_size);
+
+    /// Op E (0x65 / 101) — Scala/InfoChannel ANIM16. Same shape as op D
+    /// but `entries` is u16, opcode is s16, and the run/literal payload
+    /// is u16. Writes step by full row pitch. Caller must reject the
+    /// interlaced flag.
+    [[nodiscard]] result
+        apply_dlta_op_e(std::span<const std::uint8_t> dlta,
+                        std::uint8_t* fb,
+                        unsigned int  width,
+                        unsigned int  planes,
+                        std::size_t   fb_size);
+
     /**
      * Convert row-interleaved planar storage (the layout used both by ILBM
      * BODY chunks and by ANIM op-5 DLTA framebuffers) to chunky 8-bit

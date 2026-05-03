@@ -86,5 +86,20 @@ namespace onyx_anim {
              * audio. Each track may only be taken once.
              */
             [[nodiscard]] virtual std::unique_ptr <musac::decoder> take_audio_track(unsigned int index);
+
+            /**
+             * Audio events triggered by the most recently decoded frame.
+             *
+             * Default: empty span (the codec doesn't expose event-driven audio).
+             * Codecs that support event-driven sound (e.g. Amiga ANIM+SLA's
+             * SCTL chunks) populate this from inside decode_frame() / seek_*().
+             *
+             * Lifetime: the returned span is only valid until the next call
+             * to decode_frame() or seek_*() on this decoder. Each event's
+             * `sound_bytes` is shared, so the player may keep playing after
+             * the span has been invalidated.
+             */
+            [[nodiscard]] virtual std::span<const audio_event>
+                pending_audio_events() const noexcept;
     };
 } // namespace onyx_anim

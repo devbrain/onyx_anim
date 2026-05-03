@@ -1,7 +1,10 @@
+#include <algorithm>
 #include <array>
+#include <atomic>
 #include <chrono>
 #include <cstdint>
 #include <cstring>
+#include <memory>
 #include <optional>
 #include <sstream>
 #include <string>
@@ -15,6 +18,8 @@
 #include <iff/handler_registry.hh>
 #include <iff/parse_options.hh>
 #include <iff/parser.hh>
+
+#include <musac/sdk/decoder.hh>
 
 #include "amiga_anim.hh"
 
@@ -32,6 +37,10 @@ namespace onyx_anim {
         constexpr auto kBodyCC = "BODY"_4cc;
         constexpr auto kAnhdCC = "ANHD"_4cc;
         constexpr auto kDltaCC = "DLTA"_4cc;
+        constexpr auto kSxhdCC = "SXHD"_4cc;
+        constexpr auto kSbdyCC = "SBDY"_4cc;
+        constexpr auto kSctlCC = "SCTL"_4cc;
+        constexpr auto k8svxCC = "8SVX"_4cc;
 
         // Per-frame raw chunk data, captured during the IFF walk in open().
         struct frame_record {
@@ -41,6 +50,183 @@ namespace onyx_anim {
             std::optional<std::vector<std::uint8_t>> cmap_rgb;  // already BMHD-RGB
             std::vector<std::uint8_t>      body;   // raw ByteRun1 stream (keyframe)
             std::vector<std::uint8_t>      dlta;   // raw delta stream
+            std::vector<std::uint8_t>      sbdy;   // raw audio bytes for this frame
+            std::vector<audio_event>       audio_events;  // ANIM+SLA SCTL triggers
+        };
+
+        // ANIM+SLA "Sound ConTroL" — 16 bytes, big-endian. Mirrors the layout
+        // documented in iffanimplay's iffanim_audio.hpp.
+        struct sctl {
+            std::uint8_t  command;
+            std::uint8_t  volume;     // 0..64
+            std::uint16_t sound;      // 1-indexed slot in the 8SVX bank
+            std::uint16_t repeats;    // 0 = loop forever
+            std::uint16_t channel;    // bitmask
+            std::uint16_t frequency;  // 0 = use VHDR rate
+            std::uint16_t flags;
+            // 4 trailing pad bytes ignored
+        };
+
+        [[nodiscard]] sctl parse_sctl(std::span<const std::uint8_t> data) {
+            sctl s{};
+            if (data.size() < 12u) return s;
+            const auto* p = data.data();
+            s.command   = p[0];
+            s.volume    = p[1];
+            s.sound     = static_cast<std::uint16_t>((p[2] << 8) | p[3]);
+            s.repeats   = static_cast<std::uint16_t>((p[4] << 8) | p[5]);
+            s.channel   = static_cast<std::uint16_t>((p[6] << 8) | p[7]);
+            s.frequency = static_cast<std::uint16_t>((p[8] << 8) | p[9]);
+            s.flags     = static_cast<std::uint16_t>((p[10] << 8) | p[11]);
+            return s;
+        }
+
+        // Locate top-level FORM 8SVX entries inside FORM ANIM and copy each
+        // (including the leading "FORM"+size header, so the bytes are
+        // self-contained for `musac::io_from_memory` + decoder_8svx). The IFF
+        // handler API is chunk-oriented; reconstructing nested FORM bytes
+        // from chunk events is awkward, so we walk file_bytes_ directly.
+        std::vector<std::shared_ptr<const std::vector<std::uint8_t>>>
+        extract_8svx_bank(std::span<const std::uint8_t> file_bytes) {
+            std::vector<std::shared_ptr<const std::vector<std::uint8_t>>> out;
+            if (file_bytes.size() < 12u) return out;
+
+            auto rd_u32be = [](const std::uint8_t* p) -> std::uint32_t {
+                return (static_cast<std::uint32_t>(p[0]) << 24) |
+                       (static_cast<std::uint32_t>(p[1]) << 16) |
+                       (static_cast<std::uint32_t>(p[2]) << 8)  |
+                        static_cast<std::uint32_t>(p[3]);
+            };
+
+            // Outer FORM ANIM header at offset 0..11.
+            if (std::memcmp(file_bytes.data(), "FORM", 4) != 0 ||
+                std::memcmp(file_bytes.data() + 8, "ANIM", 4) != 0) {
+                return out;
+            }
+            const std::uint32_t outer_size = rd_u32be(file_bytes.data() + 4);
+            const std::size_t outer_end =
+                std::min<std::size_t>(file_bytes.size(), 8u + outer_size);
+
+            // Walk children of FORM ANIM (start right after "ANIM" type tag).
+            std::size_t pos = 12u;
+            while (pos + 8u <= outer_end) {
+                const auto* p = file_bytes.data() + pos;
+                const std::uint32_t sz = rd_u32be(p + 4);
+                const std::size_t chunk_end = pos + 8u + sz;
+                if (chunk_end > outer_end) break;
+                if (std::memcmp(p, "FORM", 4) == 0 && sz >= 4u) {
+                    if (std::memcmp(p + 8, "8SVX", 4) == 0) {
+                        // Capture FORM header + body verbatim.
+                        auto buf = std::make_shared<std::vector<std::uint8_t>>(
+                            file_bytes.data() + pos,
+                            file_bytes.data() + chunk_end);
+                        out.push_back(std::move(buf));
+                    } else if (std::memcmp(p + 8, "ILBM", 4) == 0) {
+                        // 8SVX bank only ever appears before the first ILBM
+                        // per the ANIM+SLA convention; stop scanning.
+                        break;
+                    }
+                }
+                pos = chunk_end;
+                if (sz & 1u) ++pos;  // IFF padding
+            }
+            return out;
+        }
+
+        // ----- Audio: pre-loaded PCM + atomic cursor -----------------------------
+        //
+        // The demuxer (main thread) populates `pcm` once at open() and never
+        // touches it again. The audio decoder (musac thread) reads `pcm` and
+        // advances `pos_frames` on its own. The only cross-thread coupling is
+        // `pos_frames`, which the demuxer atomically rewrites on seeks.
+
+        struct anim_audio_state {
+            std::vector<std::int8_t>   pcm;          // interleaved 8-bit signed
+            musac::sample_rate_t       rate     = 0;
+            musac::channels_t          channels = 0;
+            std::atomic<std::size_t>   pos_frames{0};
+        };
+
+        class anim_audio_decoder final : public musac::decoder {
+            public:
+                explicit anim_audio_decoder(std::shared_ptr<anim_audio_state> st)
+                    : st_(std::move(st)) {
+                    set_is_open(true);
+                }
+
+                [[nodiscard]] const char* get_name() const override {
+                    return "Amiga ANIM audio";
+                }
+
+                // Pre-opened by the demuxer; the io_stream is unused.
+                void open(musac::io_stream*) override {
+                    set_is_open(true);
+                }
+
+                [[nodiscard]] musac::channels_t get_channels() const override {
+                    return st_->channels;
+                }
+                [[nodiscard]] musac::sample_rate_t get_rate() const override {
+                    return st_->rate;
+                }
+
+                bool rewind() override {
+                    st_->pos_frames.store(0, std::memory_order_release);
+                    return true;
+                }
+
+                [[nodiscard]] std::chrono::microseconds duration() const override {
+                    if (!st_->rate || !st_->channels) {
+                        return std::chrono::microseconds{0};
+                    }
+                    const auto total_frames =
+                        static_cast<std::int64_t>(st_->pcm.size() / st_->channels);
+                    return std::chrono::microseconds{
+                        total_frames * 1'000'000LL /
+                        static_cast<std::int64_t>(st_->rate)};
+                }
+
+                bool seek_to_time(std::chrono::microseconds pos) override {
+                    if (!st_->rate || !st_->channels) return false;
+                    const std::int64_t f =
+                        pos.count() *
+                        static_cast<std::int64_t>(st_->rate) / 1'000'000LL;
+                    const auto total =
+                        static_cast<std::int64_t>(st_->pcm.size() / st_->channels);
+                    std::int64_t target = f < 0 ? 0 : f;
+                    if (target > total) target = total;
+                    st_->pos_frames.store(static_cast<std::size_t>(target),
+                                          std::memory_order_release);
+                    return true;
+                }
+
+            protected:
+                std::size_t do_decode(float* buf, std::size_t len,
+                                      bool& call_again) override {
+                    const auto ch = st_->channels;
+                    if (!ch || st_->pcm.empty()) {
+                        call_again = false;
+                        return 0;
+                    }
+                    const std::size_t total = st_->pcm.size() / ch;
+                    const std::size_t pos =
+                        st_->pos_frames.load(std::memory_order_acquire);
+                    const std::size_t avail = pos < total ? total - pos : 0u;
+                    const std::size_t want_frames  = len / ch;
+                    const std::size_t n_frames     = std::min(avail, want_frames);
+                    const std::size_t n_samples    = n_frames * ch;
+                    const std::int8_t* src = st_->pcm.data() + pos * ch;
+                    for (std::size_t i = 0; i < n_samples; ++i) {
+                        buf[i] = static_cast<float>(src[i]) / 128.0f;
+                    }
+                    st_->pos_frames.store(pos + n_frames,
+                                          std::memory_order_release);
+                    call_again = (pos + n_frames) < total;
+                    return n_samples;
+                }
+
+            private:
+                std::shared_ptr<anim_audio_state> st_;
         };
 
         [[nodiscard]] bool read_full_file(musac::io_stream* s,
@@ -96,6 +282,12 @@ namespace onyx_anim {
                     if (!read_full_file(s, file_bytes_)) {
                         return make_unexpected<error_type>("anim: cannot read file");
                     }
+
+                    // Extract the ANIM+SLA 8SVX sound bank (if any) before the
+                    // IFF walk so per-frame SCTL handlers can resolve slot
+                    // numbers to byte buffers in one pass.
+                    sound_bank_ = extract_8svx_bank(
+                        {file_bytes_.data(), file_bytes_.size()});
 
                     if (auto r = parse_iff_tree(); !r) {
                         return make_unexpected<error_type>(r.error());
@@ -161,6 +353,12 @@ namespace onyx_anim {
 
                     cursor_ = 0;
                     last_buffer_ = 0;
+
+                    // ---- Audio: build pre-loaded PCM buffer if SXHD was found.
+                    if (auto r = build_audio_track(); !r) {
+                        return make_unexpected<error_type>(r.error());
+                    }
+
                     return {};
                 }
 
@@ -192,9 +390,13 @@ namespace onyx_anim {
                         palette_.fill(0);
                         last_buffer_ = 0;
                     }
+                    // Drop any pending events from the prior frame; advancing
+                    // through frames will repopulate as decode_frame replays.
+                    last_decoded_audio_events_ = nullptr;
                     while (cursor_ < idx) {
                         if (!advance_state()) return false;
                     }
+                    sync_audio_cursor_to_frame(idx);
                     return true;
                 }
 
@@ -208,6 +410,25 @@ namespace onyx_anim {
                     const auto last = static_cast<std::int64_t>(frames_.size());
                     if (f > last) f = last;
                     return seek_to_frame(static_cast<unsigned int>(f));
+                }
+
+                [[nodiscard]] unsigned int audio_track_count() const noexcept override {
+                    return audio_ ? 1u : 0u;
+                }
+
+                [[nodiscard]] std::unique_ptr<musac::decoder>
+                take_audio_track(unsigned int index) override {
+                    // Each track may only be taken once (decoder.hh contract).
+                    if (!audio_ || index != 0u || audio_taken_) return nullptr;
+                    audio_taken_ = true;
+                    return std::make_unique<anim_audio_decoder>(audio_);
+                }
+
+                [[nodiscard]] std::span<const audio_event>
+                pending_audio_events() const noexcept override {
+                    if (!last_decoded_audio_events_) return {};
+                    return {last_decoded_audio_events_->data(),
+                            last_decoded_audio_events_->size()};
                 }
 
             private:
@@ -226,6 +447,7 @@ namespace onyx_anim {
 
                     auto finalize_current = [&]() {
                         if (!current.body.empty() || !current.dlta.empty() ||
+                            !current.sbdy.empty() ||
                             current.bmhd || current.anhd ||
                             current.cmap_rgb || current.camg) {
                             frames_.push_back(std::move(current));
@@ -241,9 +463,10 @@ namespace onyx_anim {
                     auto on_frame_starter = [&](auto parser, auto setter) {
                         return [&, parser, setter](const iff::chunk_event& e) {
                             if (e.type != iff::chunk_event_type::begin || !e.reader) return;
-                            // Heuristic: if `current` already has BODY or DLTA, the
-                            // previous frame ended; flush it before starting fresh.
-                            if (!current.body.empty() || !current.dlta.empty()) {
+                            // Heuristic: if `current` already has BODY/DLTA/SBDY,
+                            // the previous frame ended; flush before starting fresh.
+                            if (!current.body.empty() || !current.dlta.empty() ||
+                                !current.sbdy.empty()) {
                                 finalize_current();
                             }
                             auto bytes = read_chunk_bytes(e);
@@ -285,6 +508,55 @@ namespace onyx_anim {
                         [&](const iff::chunk_event& e) {
                             if (e.type != iff::chunk_event_type::begin || !e.reader) return;
                             current.dlta = read_chunk_bytes(e);
+                        });
+                    handlers.on_chunk_in_form(kIlbmCC, kSxhdCC,
+                        [&](const iff::chunk_event& e) {
+                            if (e.type != iff::chunk_event_type::begin || !e.reader) return;
+                            // SXHD only ever appears in the keyframe ILBM. The
+                            // last one wins if (improbably) more than one is
+                            // emitted.
+                            auto bytes = read_chunk_bytes(e);
+                            auto v = anim::parse_sxhd({bytes.data(), bytes.size()});
+                            if (!v) { remember_error(v.error()); return; }
+                            sxhd_ = *v;
+                        });
+                    handlers.on_chunk_in_form(kIlbmCC, kSbdyCC,
+                        [&](const iff::chunk_event& e) {
+                            if (e.type != iff::chunk_event_type::begin || !e.reader) return;
+                            // Multiple SBDYs per frame are concatenated, per the
+                            // AnimFX spec ("if a frame owns two SBDYs, replay
+                            // the second on the other channels").
+                            auto bytes = read_chunk_bytes(e);
+                            if (current.sbdy.empty()) {
+                                current.sbdy = std::move(bytes);
+                            } else {
+                                const std::size_t old_n = current.sbdy.size();
+                                current.sbdy.resize(old_n + bytes.size());
+                                std::memcpy(current.sbdy.data() + old_n,
+                                            bytes.data(), bytes.size());
+                            }
+                        });
+                    handlers.on_chunk_in_form(kIlbmCC, kSctlCC,
+                        [&](const iff::chunk_event& e) {
+                            if (e.type != iff::chunk_event_type::begin || !e.reader) return;
+                            // The 8SVX bank is extracted before parse_iff_tree
+                            // runs, so we can resolve `sound` (1-indexed) here.
+                            auto bytes = read_chunk_bytes(e);
+                            const auto sc = parse_sctl({bytes.data(), bytes.size()});
+                            if (sc.sound == 0u) return;
+                            const std::size_t slot = static_cast<std::size_t>(sc.sound) - 1u;
+                            if (slot >= sound_bank_.size()) return;
+                            audio_event ev{};
+                            ev.sound_bytes   = sound_bank_[slot];
+                            ev.volume        = std::clamp(
+                                static_cast<float>(sc.volume) / 64.0f, 0.0f, 1.0f);
+                            ev.freq_override = sc.frequency;
+                            // SCTL convention: 0 means "loop forever" — pass it
+                            // through unchanged. audio_event documents the same
+                            // convention so the player can decide what to do.
+                            ev.repeats       = sc.repeats;
+                            ev.channel_mask  = sc.channel;
+                            current.audio_events.push_back(std::move(ev));
                         });
 
                     try {
@@ -386,6 +658,22 @@ namespace onyx_anim {
                                 r = anim::apply_dlta_opj(dlta_span, fb_a_.data(),
                                                          width_, height_, planes_, fb_total);
                                 break;
+                            case 0x64: // 'd' = decimal 100 (Scala ANIM32)
+                                if (bits & 0x40u) {
+                                    return make_unexpected<error_type>(
+                                        "anim: op 100 with interlace flag not supported");
+                                }
+                                r = anim::apply_dlta_op_d(dlta_span, fb_a_.data(),
+                                                          width_, planes_, fb_total);
+                                break;
+                            case 0x65: // 'e' = decimal 101 (Scala ANIM16)
+                                if (bits & 0x40u) {
+                                    return make_unexpected<error_type>(
+                                        "anim: op 101 with interlace flag not supported");
+                                }
+                                r = anim::apply_dlta_op_e(dlta_span, fb_a_.data(),
+                                                          width_, planes_, fb_total);
+                                break;
                             case 0x6C: // 'l' = decimal 108
                                 // Same `is_short` convention as ops 7/8: ANHD
                                 // bits & 1 == 0 → short/vertical (full-pitch
@@ -430,6 +718,11 @@ namespace onyx_anim {
                         : info_.frame_period;
                     fi.palette_changed = static_cast<bool>(f.cmap_rgb);
                     fi.keyframe        = !f.body.empty();
+                    // Stage the just-decoded frame's audio events for the
+                    // caller to drain via pending_audio_events(). Stored as a
+                    // pointer-into-frames_ avoids a copy; the span is invalid
+                    // after the next decode_frame()/seek_*() call as documented.
+                    last_decoded_audio_events_ = &f.audio_events;
                     ++cursor_;
                     return fi;
                 }
@@ -544,11 +837,116 @@ namespace onyx_anim {
                     return {};
                 }
 
+                // ----- Audio: pre-load all SBDY frames into one PCM buffer -----
+                //
+                // Stereo SBDY layout (per AnimFX): each chunk holds the L block
+                // followed by the R block. We interleave to LRLR... at load
+                // time so the audio thread does no de-interleaving.
+                [[nodiscard]] result build_audio_track() {
+                    if (!sxhd_) return {};
+
+                    if (sxhd_->compression != 0u) {
+                        return make_unexpected<error_type>(
+                            "anim: SXHD compression != 0 not supported");
+                    }
+                    if (sxhd_->sample_depth != 8u) {
+                        return make_unexpected<error_type>(
+                            "anim: SXHD sample depth other than 8 not supported");
+                    }
+                    if (sxhd_->used_mode != 1u && sxhd_->used_mode != 2u) {
+                        return make_unexpected<error_type>(
+                            "anim: SXHD used_mode must be 1 (mono) or 2 (stereo)");
+                    }
+                    if (sxhd_->play_freq == 0u) {
+                        return make_unexpected<error_type>(
+                            "anim: SXHD play_freq is zero");
+                    }
+
+                    const musac::channels_t ch =
+                        static_cast<musac::channels_t>(sxhd_->used_mode);
+
+                    auto state = std::make_shared<anim_audio_state>();
+                    state->channels = ch;
+                    state->rate     = static_cast<musac::sample_rate_t>(sxhd_->play_freq);
+
+                    audio_frame_offsets_.clear();
+                    audio_frame_offsets_.reserve(frames_.size() + 1u);
+
+                    // Reserve roughly the right size: most files have
+                    // SXHD.length samples per channel per frame.
+                    state->pcm.reserve(frames_.size() *
+                                       static_cast<std::size_t>(sxhd_->length) *
+                                       ch);
+
+                    for (const auto& f : frames_) {
+                        audio_frame_offsets_.push_back(
+                            state->pcm.size() / std::max<musac::channels_t>(ch, 1));
+
+                        if (f.sbdy.empty()) continue;
+
+                        if (ch == 1) {
+                            // Mono: append the SBDY bytes verbatim as int8.
+                            const auto* src = reinterpret_cast<const std::int8_t*>(
+                                f.sbdy.data());
+                            state->pcm.insert(state->pcm.end(),
+                                              src, src + f.sbdy.size());
+                        } else {
+                            // Stereo: SBDY is `LL...LL RR...RR`; interleave.
+                            // Both halves must be equal in size; if the chunk
+                            // is odd-sized, drop the trailing byte.
+                            const std::size_t half = f.sbdy.size() / 2u;
+                            const auto* L = reinterpret_cast<const std::int8_t*>(
+                                f.sbdy.data());
+                            const auto* R = L + half;
+                            const std::size_t base = state->pcm.size();
+                            state->pcm.resize(base + half * 2u);
+                            for (std::size_t i = 0; i < half; ++i) {
+                                state->pcm[base + i * 2u + 0u] = L[i];
+                                state->pcm[base + i * 2u + 1u] = R[i];
+                            }
+                        }
+                    }
+                    audio_frame_offsets_.push_back(
+                        state->pcm.size() / std::max<musac::channels_t>(ch, 1));
+
+                    audio_ = std::move(state);
+                    info_.audio_track_count = 1u;
+                    info_.audio_rate        = audio_->rate;
+                    info_.audio_channels    = audio_->channels;
+                    return {};
+                }
+
+                void sync_audio_cursor_to_frame(unsigned int idx) noexcept {
+                    if (!audio_) return;
+                    const std::size_t i = std::min(
+                        static_cast<std::size_t>(idx),
+                        audio_frame_offsets_.empty()
+                            ? std::size_t{0}
+                            : audio_frame_offsets_.size() - 1u);
+                    const std::size_t pos = audio_frame_offsets_.empty()
+                        ? std::size_t{0}
+                        : audio_frame_offsets_[i];
+                    audio_->pos_frames.store(pos, std::memory_order_release);
+                }
+
                 musac::io_stream*             stream_ = nullptr;
                 std::vector<std::uint8_t>     file_bytes_;
                 std::vector<frame_record>     frames_;
                 std::vector<std::uint8_t>     cmap_rgb_;
                 std::uint32_t                 camg_ = 0;
+                std::optional<anim::sxhd>     sxhd_;
+                std::shared_ptr<anim_audio_state> audio_;
+                std::vector<std::size_t>      audio_frame_offsets_;
+                bool                          audio_taken_ = false;
+
+                // ANIM+SLA: top-level 8SVX FORMs (sound bank). Each entry is a
+                // shared_ptr so per-frame audio_event entries can reference it
+                // cheaply and stay valid past decode_frame()/seek_*().
+                std::vector<std::shared_ptr<const std::vector<std::uint8_t>>>
+                                              sound_bank_;
+                // Pointer to the just-decoded frame's audio_events. Reset
+                // (nulled) on seek; invalidated when frames_ is rebuilt.
+                const std::vector<audio_event>* last_decoded_audio_events_ = nullptr;
 
                 anim_info                     info_{};
                 unsigned int                  width_  = 0;

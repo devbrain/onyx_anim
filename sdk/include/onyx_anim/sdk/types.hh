@@ -6,6 +6,8 @@
 
 #include <chrono>
 #include <cstdint>
+#include <memory>
+#include <vector>
 
 namespace onyx_anim {
     // Re-export the pixel_format from onyx_image so callers don't need both headers.
@@ -58,4 +60,30 @@ namespace onyx_anim {
 
     // Per-frame decode result alias.
     using frame_result = expected <frame_info, error_type>;
+
+    // ============================================================================
+    // Per-frame audio events (event-driven sound, e.g. ANIM+SLA SCTL triggers)
+    // ============================================================================
+
+    /**
+     * One-shot audio trigger fired by the just-decoded video frame.
+     *
+     * The decoder hands the player a self-contained byte buffer that can be
+     * wrapped with `musac::io_from_memory` and fed to a fresh musac decoder.
+     * `sound_bytes` is shared because:
+     *   - The same sample (e.g. an ANIM+SLA bank entry) may fire from many
+     *     frames, and copying its body each time would be wasteful.
+     *   - The player may keep the buffer alive past the next decode_frame()
+     *     while a stream is still draining.
+     */
+    struct audio_event {
+        // Raw bytes ready for `musac::io_from_memory` — typically a complete
+        // IFF FORM (e.g. an 8SVX FORM with its leading "FORM"+size header).
+        std::shared_ptr<const std::vector<std::uint8_t>> sound_bytes;
+
+        float        volume        = 1.0f; ///< 0..1, linear
+        std::uint16_t freq_override = 0u;  ///< 0 = use the format's native rate
+        std::uint16_t repeats       = 1u;  ///< 0 = loop forever
+        std::uint16_t channel_mask  = 0u;  ///< codec-specific; 0 = unspecified
+    };
 } // namespace onyx_anim

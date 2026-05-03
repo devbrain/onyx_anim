@@ -19,8 +19,9 @@ target_include_directories(lib_amiga_anim
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
 )
 
-# PUBLIC because anim/types.hh re-exports onyx_anim::expected.
-target_link_libraries(lib_amiga_anim PUBLIC onyx_anim_sdk neutrino::iff)
+# PUBLIC because anim/types.hh re-exports onyx_anim::expected and
+# bytes::byte_reader_be — consumers need both include trees.
+target_link_libraries(lib_amiga_anim PUBLIC onyx_anim_sdk neutrino::iff lib_bytes)
 
 set_target_properties(lib_amiga_anim PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
