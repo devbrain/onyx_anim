@@ -57,9 +57,13 @@ namespace bink {
         unsigned int          last_value = 0;
     };
 
+    // Bundle storage sized for the larger of the two layouts (BIK[b]
+    // needs 10 slots; modern Bink uses 9). The decoder only touches
+    // the active subset for the path it's running.
     struct bundle_set {
-        std::array <bundle, kNumSrc> b;
-        color_high_state             colors;
+        static constexpr unsigned int kCapacity = 10;
+        std::array <bundle, kCapacity> b;
+        color_high_state               colors;
     };
 
     // Allocate per-bundle storage for a frame of `bw × bh` 8x8 blocks.

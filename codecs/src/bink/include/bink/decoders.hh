@@ -50,7 +50,19 @@ namespace bink {
     // Decode one Bink video frame from the supplied bit stream into
     // fs.cur. After return, fs.cur holds the new frame and (cur ↔ prev)
     // are swapped for the next call. `version` is the BIK[?] revision.
+    //
+    // For BIK[b] (older variant) the caller should route through
+    // `decode_frame_b` instead — it has a different bundle layout
+    // (no per-frame Huffman trees, fixed bit-field widths) and a
+    // different block-type vocabulary.
     result decode_frame(frame_state& fs,
                         std::span <const std::uint8_t> video_bits,
                         const file_header& h);
+
+    // BIK[b] codepath. Same `frame_state` for plane buffers + bundle
+    // storage, but the per-row dispatch is different and the
+    // quantisation matrices are computed at first use.
+    result decode_frame_b(frame_state& fs,
+                          std::span <const std::uint8_t> video_bits,
+                          const file_header& h);
 } // namespace bink

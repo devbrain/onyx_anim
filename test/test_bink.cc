@@ -95,7 +95,13 @@ TEST_CASE("bink: logo_lucas exposes its audio track") {
     CHECK(dec->take_audio_track(0) == nullptr);
 }
 
-TEST_CASE("bink: BIK[b] revision is rejected (not yet supported)") {
+TEST_CASE("bink: BIK[b] revision opens + decodes (DEFENDALL.BIK)") {
+    // BIK[b] uses the older bundle layout (10 bundles, fixed bit-field
+    // widths, no per-frame Huffman trees) and a different block-type
+    // vocabulary than modern Bink. The decoder is wired but the chroma
+    // path still has a residual bug — Y plane is mostly correct, U/V
+    // diverge significantly. We assert open + first-frame decode but
+    // don't include this file in the strict cross-check ctest list.
     const auto path = sample("DEFENDALL.BIK");
     if (!exists(path)) return;
 
@@ -105,8 +111,14 @@ TEST_CASE("bink: BIK[b] revision is rejected (not yet supported)") {
     auto dec = reg.create_decoder(stream.get());
     REQUIRE(dec);
     CHECK(dec->name() == "bink");
-    // sniff matches, but open() should refuse with a clear error.
-    CHECK_FALSE(dec->open(stream.get()));
+    REQUIRE(dec->open(stream.get()));
+    CHECK(dec->info().width  == 256u);
+    CHECK(dec->info().height == 120u);
+    CHECK(dec->info().frame_count == 99u);
+
+    onyx_image::memory_surface surf;
+    auto fr = dec->decode_frame(surf);
+    REQUIRE(fr);
 }
 
 TEST_CASE("bink: Bink2 magic (KB2*) would be rejected") {

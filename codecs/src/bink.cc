@@ -106,14 +106,6 @@ namespace onyx_anim {
                     if (!h) return make_unexpected<error_type>(h.error());
                     header_ = *h;
 
-                    if (header_.version == 'b') {
-                        // BIK[b] uses a different bundle layout / quant
-                        // tables — implementation deferred; reject so the
-                        // user gets a clear error rather than scrambled
-                        // pixels.
-                        return make_unexpected<error_type>(
-                            "bink: BIK[b] revision not yet supported");
-                    }
                     if (header_.has_alpha) {
                         return make_unexpected<error_type>(
                             "bink: alpha-plane files not yet supported");
@@ -199,8 +191,11 @@ namespace onyx_anim {
                         frame_bytes = frame_bytes.subspan(4u + chunk_sz);
                     }
 
-                    if (auto r = bink::decode_frame(state_, frame_bytes, header_); !r) {
-                        return make_unexpected<error_type>(r.error());
+                    auto decode_r = (header_.version == 'b')
+                        ? bink::decode_frame_b(state_, frame_bytes, header_)
+                        : bink::decode_frame(state_, frame_bytes, header_);
+                    if (!decode_r) {
+                        return make_unexpected<error_type>(decode_r.error());
                     }
 
                     if (!out.set_size(static_cast <int>(header_.width),

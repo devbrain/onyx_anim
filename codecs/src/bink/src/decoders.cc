@@ -583,6 +583,361 @@ namespace bink {
         }
     } // namespace
 
+    // -------------------------------------------------------------------
+    // BIK[b] codepath — older Bink variant with simpler bundles, fixed
+    // bit-field widths, and per-file (not per-frame) Huffman tables.
+    // -------------------------------------------------------------------
+
+    namespace {
+        // Bundles for the BIK[b] variant. Same set as ffmpeg's
+        // `enum OldSources`. Order matters — it's the order they're
+        // re-read at the top of each block row.
+        enum binkb_src : unsigned int {
+            kBSrcBlockTypes  = 0,
+            kBSrcColors      = 1,
+            kBSrcPattern     = 2,
+            kBSrcXOff        = 3,
+            kBSrcYOff        = 4,
+            kBSrcIntraDc     = 5,
+            kBSrcInterDc     = 6,
+            kBSrcIntraQ      = 7,
+            kBSrcInterQ      = 8,
+            kBSrcInterCoefs  = 9,
+            kBSrcCount       = 10,
+        };
+
+        constexpr std::uint8_t kBinkbBundleSizes[10] = {
+            4, 8, 8, 5, 5, 11, 11, 4, 4, 7,
+        };
+        constexpr std::uint8_t kBinkbBundleSigned[10] = {
+            0, 0, 0, 1, 1, 0, 1, 0, 0, 0,
+        };
+
+        // Per-tree-index quantisation matrices, computed once on first
+        // use from the seed tables in data.hh. Same formula as ffmpeg's
+        // `binkb_calc_quant()`.
+        struct binkb_quant_tables {
+            std::array <std::array <std::int32_t, 64>, 16> intra{};
+            std::array <std::array <std::int32_t, 64>, 16> inter{};
+        };
+
+        const binkb_quant_tables& get_binkb_quant_tables() {
+            static const binkb_quant_tables t = []() {
+                binkb_quant_tables out{};
+                std::uint8_t inv_bink_scan[64];
+                static constexpr std::int64_t s_table[64] = {
+                    1073741824, 1489322693, 1402911301, 1262586814, 1073741824,  843633538,  581104888,  296244703,
+                    1489322693, 2065749918, 1945893874, 1751258219, 1489322693, 1170153332,  806015634,  410903207,
+                    1402911301, 1945893874, 1832991949, 1649649171, 1402911301, 1102260336,  759250125,  387062357,
+                    1262586814, 1751258219, 1649649171, 1484645031, 1262586814,  992008094,  683307060,  348346918,
+                    1073741824, 1489322693, 1402911301, 1262586814, 1073741824,  843633538,  581104888,  296244703,
+                     843633538, 1170153332, 1102260336,  992008094,  843633538,  662838617,  456571181,  232757969,
+                     581104888,  806015634,  759250125,  683307060,  581104888,  456571181,  314491699,  160326478,
+                     296244703,  410903207,  387062357,  348346918,  296244703,  232757969,  160326478,   81733730,
+                };
+                constexpr std::int64_t kC_shr12 = static_cast <std::int64_t>(1) << 18; // (1<<30)>>12
+                for (int i = 0; i < 64; ++i) {
+                    inv_bink_scan[data::bink_scan[i]] = static_cast <std::uint8_t>(i);
+                }
+                for (int j = 0; j < 16; ++j) {
+                    for (int i = 0; i < 64; ++i) {
+                        const int k = inv_bink_scan[i];
+                        const std::int64_t num =
+                            static_cast <std::int64_t>(data::binkb_num[j]);
+                        const std::int64_t den =
+                            static_cast <std::int64_t>(data::binkb_den[j]);
+                        out.intra[static_cast <std::size_t>(j)][static_cast <std::size_t>(k)] =
+                            static_cast <std::int32_t>(
+                                static_cast <std::int64_t>(data::binkb_intra_seed[i]) *
+                                s_table[i] * num /
+                                (den * kC_shr12));
+                        out.inter[static_cast <std::size_t>(j)][static_cast <std::size_t>(k)] =
+                            static_cast <std::int32_t>(
+                                static_cast <std::int64_t>(data::binkb_inter_seed[i]) *
+                                s_table[i] * num /
+                                (den * kC_shr12));
+                    }
+                }
+                return out;
+            }();
+            return t;
+        }
+
+        // Read one BIK[b] bundle row: a count field of `kBinkbBundleSizes[i]+1`
+        // (no — re-checking ffmpeg: uses `len = 13` for all bundles, the
+        // actual bit width per ELEMENT is `kBinkbBundleSizes[i]`).
+        // ffmpeg's `binkb_init_bundle` sets `len = 13` for the count
+        // field, so each row's count is read as 13 bits regardless of
+        // the per-element width.
+        result binkb_read_bundle(bit_reader& br, bundle& bd, unsigned int bundle_idx) {
+            // Stop if previous decode-into has already filled past the
+            // read cursor — the bundle is "exhausted" until consumer
+            // catches up.
+            if (!bd.active || bd.cur_dec > bd.cur_ptr) return {};
+            if (br.bits_left() < 13u) {
+                return make_unexpected<error_type>("bink-b: count field truncated");
+            }
+            const auto count = static_cast <int>(br.get_bits(13));
+            if (count == 0) {
+                bd.active = false;
+                return {};
+            }
+            const unsigned int bits = kBinkbBundleSizes[bundle_idx];
+            const bool issigned = kBinkbBundleSigned[bundle_idx] != 0;
+            const unsigned int mask = 1u << (bits - 1u);
+            // 16-bit-storage bundles (DC) use 2 bytes per element.
+            const std::size_t bytes_per = (bits > 8u) ? 2u : 1u;
+            if (bd.cur_dec + static_cast <std::size_t>(count) * bytes_per
+                > bd.data.size()) {
+                return make_unexpected<error_type>("bink-b: bundle over-runs buffer");
+            }
+            if (br.bits_left() < static_cast <std::size_t>(count) * bits) {
+                return make_unexpected<error_type>("bink-b: bundle data truncated");
+            }
+            if (bytes_per == 1u) {
+                if (!issigned) {
+                    for (int i = 0; i < count; ++i) {
+                        bd.data[bd.cur_dec++] =
+                            static_cast <std::uint8_t>(br.get_bits(bits));
+                    }
+                } else {
+                    for (int i = 0; i < count; ++i) {
+                        const auto v = static_cast <int>(br.get_bits(bits)) -
+                                       static_cast <int>(mask);
+                        bd.data[bd.cur_dec++] =
+                            static_cast <std::uint8_t>(static_cast <std::int8_t>(v));
+                    }
+                }
+            } else {
+                for (int i = 0; i < count; ++i) {
+                    int v = static_cast <int>(br.get_bits(bits));
+                    if (issigned) v -= static_cast <int>(mask);
+                    const auto u = static_cast <std::uint16_t>(
+                        static_cast <std::int16_t>(v));
+                    bd.data[bd.cur_dec    ] = static_cast <std::uint8_t>(u & 0xFFu);
+                    bd.data[bd.cur_dec + 1] = static_cast <std::uint8_t>((u >> 8u) & 0xFFu);
+                    bd.cur_dec += 2;
+                }
+            }
+            return {};
+        }
+
+        int binkb_get_value(bundle_set& bs, binkb_src bundle_id) noexcept {
+            auto& b = bs.b[bundle_id];
+            const unsigned int bits = kBinkbBundleSizes[bundle_id];
+            const bool issigned = kBinkbBundleSigned[bundle_id] != 0;
+            if (bits <= 8u) {
+                const auto byte = b.data[b.cur_ptr++];
+                return issigned
+                    ? static_cast <int>(static_cast <std::int8_t>(byte))
+                    : static_cast <int>(byte);
+            }
+            const auto lo = b.data[b.cur_ptr];
+            const auto hi = b.data[b.cur_ptr + 1];
+            const auto u = static_cast <std::uint16_t>(lo | (hi << 8u));
+            const auto s = static_cast <std::int16_t>(u);
+            b.cur_ptr += 2;
+            return static_cast <int>(s);
+        }
+
+        result binkb_decode_plane(bit_reader& br,
+                                  bundle_set& bs,
+                                  std::uint8_t* dst_plane,
+                                  std::uint8_t* prev_plane,
+                                  unsigned int width, unsigned int height,
+                                  unsigned int stride,
+                                  bool is_keyframe) {
+            const unsigned int bw = (width  + 7u) >> 3u;
+            const unsigned int bh = (height + 7u) >> 3u;
+
+            // Quant matrices are computed once on first call (thread-
+            // safe via Meyers' singleton).
+            const auto& qt = get_binkb_quant_tables();
+
+            // Reset bundles. ffmpeg's binkb_init_bundles does this at
+            // the start of every plane, with len = 13 hard-coded.
+            for (auto& b : bs.b) {
+                b.cur_dec = 0;
+                b.cur_ptr = 0;
+                b.active  = true;
+                b.len     = 13;
+            }
+
+            const std::uint8_t* ref_plane = prev_plane ? prev_plane : dst_plane;
+            const std::uint8_t* const ref_start = ref_plane;
+            const std::uint8_t* const ref_end =
+                ref_plane + (static_cast <std::size_t>(bh - 1u) * stride + (bw - 1u)) * 8u;
+
+            int coordmap[64];
+            for (int i = 0; i < 64; ++i) {
+                coordmap[i] = (i & 7) + (i >> 3) * static_cast <int>(stride);
+            }
+
+            const int ybias = is_keyframe ? -15 : 0;
+            std::int32_t dctblock[64];
+            std::int16_t residue_block[64];
+
+            for (unsigned int by = 0; by < bh; ++by) {
+                for (unsigned int i = 0; i < kBSrcCount; ++i) {
+                    if (auto r = binkb_read_bundle(br, bs.b[i], i); !r) return r;
+                }
+
+                std::uint8_t* dst  = dst_plane + 8u * by * stride;
+
+                for (unsigned int bx = 0; bx < bw; ++bx, dst += 8) {
+                    const int blk = binkb_get_value(bs, kBSrcBlockTypes);
+
+                    auto motion_only = [&](std::uint8_t* d) -> result {
+                        const int xoff = binkb_get_value(bs, kBSrcXOff);
+                        const int yoff = binkb_get_value(bs, kBSrcYOff) + ybias;
+                        const std::uint8_t* ref =
+                            d + xoff + yoff * static_cast <int>(stride);
+                        // ffmpeg only copies when the reference is in
+                        // bounds — out-of-bounds case leaves dst with
+                        // whatever was there before (warning logged,
+                        // execution continues).
+                        if (ref >= ref_start && ref <= ref_end) {
+                            if (ref + 8 * stride < d || ref >= d + 8 * stride) {
+                                put_pixels8x8(d, ref, stride);
+                            } else {
+                                put_pixels8x8_overlapped(d, ref, stride);
+                            }
+                        }
+                        return {};
+                    };
+
+                    switch (blk) {
+                        case 0: // SKIP — leave previous-frame contents
+                            break;
+                        case 1: { // PATTERN+RUN
+                            if (br.bits_left() < 4u) {
+                                return make_unexpected<error_type>("bink-b: scan-idx truncated");
+                            }
+                            const auto* scan = data::bink_patterns[br.get_bits(4)];
+                            unsigned int i = 0;
+                            do {
+                                const auto rbits = data::binkb_runbits[i];
+                                if (br.bits_left() < 1u + rbits) {
+                                    return make_unexpected<error_type>(
+                                        "bink-b: pattern flag/run truncated");
+                                }
+                                const int mode = static_cast <int>(br.get_bit());
+                                const int run = static_cast <int>(br.get_bits(rbits)) + 1;
+                                if (i + static_cast <unsigned int>(run) > 64u) {
+                                    return make_unexpected<error_type>(
+                                        "bink-b: pattern run out of bounds");
+                                }
+                                if (mode != 0) {
+                                    const auto v = static_cast <std::uint8_t>(
+                                        binkb_get_value(bs, kBSrcColors));
+                                    for (int j = 0; j < run; ++j) {
+                                        dst[coordmap[*scan++]] = v;
+                                    }
+                                } else {
+                                    for (int j = 0; j < run; ++j) {
+                                        dst[coordmap[*scan++]] = static_cast <std::uint8_t>(
+                                            binkb_get_value(bs, kBSrcColors));
+                                    }
+                                }
+                                i += static_cast <unsigned int>(run);
+                            } while (i < 63u);
+                            if (i == 63u) {
+                                dst[coordmap[*scan++]] = static_cast <std::uint8_t>(
+                                    binkb_get_value(bs, kBSrcColors));
+                            }
+                            break;
+                        }
+                        case 2: { // INTRA DCT
+                            std::memset(dctblock, 0, sizeof(dctblock));
+                            dctblock[0] = binkb_get_value(bs, kBSrcIntraDc);
+                            const int qp = binkb_get_value(bs, kBSrcIntraQ);
+                            int coef_count = 0;
+                            int coef_idx[64];
+                            const int q = read_dct_coeffs(
+                                br, dctblock, data::bink_scan,
+                                coef_count, coef_idx, qp);
+                            if (q < 0) {
+                                return make_unexpected<error_type>("bink-b: intra DCT failed");
+                            }
+                            unquantize_dct_coeffs(
+                                dctblock, qt.intra[static_cast <std::size_t>(q)].data(),
+                                coef_count, coef_idx, data::bink_scan);
+                            idct_put(dst, stride, dctblock);
+                            break;
+                        }
+                        case 3: { // MOTION + RESIDUE
+                            if (auto r = motion_only(dst); !r) return r;
+                            std::memset(residue_block, 0, sizeof(residue_block));
+                            const int v = binkb_get_value(bs, kBSrcInterCoefs);
+                            read_residue(br, residue_block, v);
+                            add_pixels8(dst, residue_block, stride);
+                            break;
+                        }
+                        case 4: { // INTER DCT
+                            if (auto r = motion_only(dst); !r) return r;
+                            std::memset(dctblock, 0, sizeof(dctblock));
+                            dctblock[0] = binkb_get_value(bs, kBSrcInterDc);
+                            const int qp = binkb_get_value(bs, kBSrcInterQ);
+                            int coef_count = 0;
+                            int coef_idx[64];
+                            const int q = read_dct_coeffs(
+                                br, dctblock, data::bink_scan,
+                                coef_count, coef_idx, qp);
+                            if (q < 0) {
+                                return make_unexpected<error_type>("bink-b: inter DCT failed");
+                            }
+                            unquantize_dct_coeffs(
+                                dctblock, qt.inter[static_cast <std::size_t>(q)].data(),
+                                coef_count, coef_idx, data::bink_scan);
+                            idct_add(dst, stride, dctblock);
+                            break;
+                        }
+                        case 5: { // FILL
+                            const auto v = static_cast <std::uint8_t>(
+                                binkb_get_value(bs, kBSrcColors));
+                            fill_block8x8(dst, v, stride);
+                            break;
+                        }
+                        case 6: { // PATTERN
+                            int col[2];
+                            for (int i = 0; i < 2; ++i) {
+                                col[i] = binkb_get_value(bs, kBSrcColors);
+                            }
+                            for (std::size_t i = 0; i < 8; ++i) {
+                                int v = binkb_get_value(bs, kBSrcPattern);
+                                for (std::size_t j = 0; j < 8; ++j, v >>= 1) {
+                                    dst[i * stride + j] =
+                                        static_cast <std::uint8_t>(col[v & 1]);
+                                }
+                            }
+                            break;
+                        }
+                        case 7: // MOTION ONLY
+                            if (auto r = motion_only(dst); !r) return r;
+                            break;
+                        case 8: { // RAW — 64 bytes directly from COLORS
+                            const auto& cb = bs.b[kBSrcColors];
+                            if (cb.cur_ptr + 64 > cb.data.size()) {
+                                return make_unexpected<error_type>(
+                                    "bink-b: RAW exhausts COLORS bundle");
+                            }
+                            for (std::size_t i = 0; i < 8; ++i) {
+                                std::memcpy(dst + i * stride,
+                                            cb.data.data() + cb.cur_ptr + i * 8u, 8);
+                            }
+                            bs.b[kBSrcColors].cur_ptr += 64;
+                            break;
+                        }
+                        default:
+                            return make_unexpected<error_type>("bink-b: unknown block type");
+                    }
+                }
+            }
+            br.align_to_32();
+            return {};
+        }
+    } // namespace
+
     void frame_state_init(frame_state& fs,
                           unsigned int width, unsigned int height) {
         auto plane_init = [&](plane_buffers& p) {
@@ -590,16 +945,19 @@ namespace bink {
             const unsigned int aligned_h = (height + 7u) & ~7u;
             p.width  = aligned_w;
             p.height = aligned_h;
+            // Y plane initialised to 0 (= "absolute black" for limited-
+            // range YUV). Chroma planes initialised to 128 (chroma
+            // neutral), which matches ffmpeg's frame allocator and
+            // matters specifically for BIK[b]'s SKIP / motion-bound-
+            // exceeded blocks where the prior buffer content shows
+            // through.
             p.y.assign(static_cast <std::size_t>(aligned_w) * aligned_h, 0);
-            // Chroma planes: 1/2 each dimension (4:2:0), then aligned to
-            // 8 to fit the 8x8 block writer. Same formula as
-            // `decode_frame` so the two agree on stride.
             const unsigned int cw = (width  + 1u) >> 1u;
             const unsigned int ch = (height + 1u) >> 1u;
             const unsigned int cw_aligned = (cw + 7u) & ~7u;
             const unsigned int ch_aligned = (ch + 7u) & ~7u;
-            p.u.assign(static_cast <std::size_t>(cw_aligned) * ch_aligned, 0);
-            p.v.assign(static_cast <std::size_t>(cw_aligned) * ch_aligned, 0);
+            p.u.assign(static_cast <std::size_t>(cw_aligned) * ch_aligned, 0x80);
+            p.v.assign(static_cast <std::size_t>(cw_aligned) * ch_aligned, 0x80);
         };
         plane_init(fs.a);
         plane_init(fs.b);
@@ -696,6 +1054,48 @@ namespace bink {
                     fs.frame_num == 1u ? nullptr : planes[p].prev,
                     planes[p].w, planes[p].h, planes[p].stride,
                     h.version); !r) {
+                return r;
+            }
+            if (br.bits_left() == 0) break;
+        }
+        return {};
+    }
+
+    result decode_frame_b(frame_state& fs,
+                          std::span <const std::uint8_t> video_bits,
+                          const file_header& h) {
+        // BIK[b] flow: ffmpeg's decode_frame calls ff_reget_buffer for
+        // version<='b' and then av_frame_ref into `frame`, so cur and
+        // prev are the SAME buffer. The decoder writes deltas in place.
+        // We emulate by always pointing prev → cur (same plane buffers).
+        bit_reader br{video_bits};
+        if (br.bits_left() == 0u) {
+            return make_unexpected<error_type>("bink-b: empty packet");
+        }
+        ++fs.frame_num;
+        const bool is_key = (fs.frame_num == 1u);
+
+        plane_buffers* p = fs.cur;
+        const unsigned int chroma_w = (h.width  + 1u) >> 1u;
+        const unsigned int chroma_h = (h.height + 1u) >> 1u;
+        const unsigned int chroma_stride = (chroma_w + 7u) & ~7u;
+
+        // BIK[b] doesn't swap planes — stream order is Y, U, V.
+        struct plane_layout {
+            std::uint8_t* dst;
+            unsigned int  w, h, stride;
+        };
+        plane_layout planes[3] = {
+            {p->y.data(), p->width,  p->height, p->width},
+            {p->u.data(), chroma_w, chroma_h,  chroma_stride},
+            {p->v.data(), chroma_w, chroma_h,  chroma_stride},
+        };
+        for (int pi = 0; pi < 3; ++pi) {
+            if (auto r = binkb_decode_plane(
+                    br, fs.bundles,
+                    planes[pi].dst, planes[pi].dst,
+                    planes[pi].w, planes[pi].h, planes[pi].stride,
+                    is_key); !r) {
                 return r;
             }
             if (br.bits_left() == 0) break;
