@@ -130,9 +130,12 @@ namespace onyx_anim {
                     info_.height       = rinfo->height;
                     info_.format       = pixel_format::indexed8;
                     info_.frame_count  = file_header_.frame_count;
-                    // Speed is in 6000 ns (= 6 µs) units.
+                    // Speed → frame period: matches Animator Pro's reference
+                    // SEQ reader (millisec_per_frame = 10 * speed / 60), i.e.
+                    // 1 unit ≈ 166.67 µs. Earlier the unit was misread as
+                    // 6 µs, which made playback ~28000× too fast.
                     info_.frame_period = std::chrono::microseconds(
-                        static_cast<std::int64_t>(file_header_.speed) * 6LL);
+                        static_cast<std::int64_t>(file_header_.speed) * 10000LL / 60LL);
                     info_.duration     = info_.frame_period * info_.frame_count;
 
                     // ---- 6. Allocate persistent planar framebuffer + chunky output.

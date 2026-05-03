@@ -32,8 +32,9 @@ namespace atari_seq {
         std::uint16_t version;      ///< 0
         std::uint32_t frame_count;  ///< number of frames; offsets table that follows
                                     ///< has frame_count u32 entries
-        std::uint16_t speed;        ///< delay between frames; units: timebase 6000 ns
-                                    ///< (so 1 unit = 6 µs)
+        std::uint16_t speed;        ///< delay between frames; period in ms = speed/6
+                                    ///< (so 1 unit ≈ 166.67 µs), per Animator Pro's
+                                    ///< reference SEQ reader.
 
         [[nodiscard]] bool is_cyber()   const noexcept { return magic == kMagicCyber; }
         [[nodiscard]] bool is_flicker() const noexcept { return magic == kMagicFlicker; }

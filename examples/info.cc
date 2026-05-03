@@ -40,6 +40,11 @@ int main(int argc, char* argv[]) {
     const auto& info = dec->info();
     std::printf("size:    %ux%u\n", info.width, info.height);
     std::printf("frames:  %u\n", info.frame_count);
+    {
+        const long long us  = static_cast<long long>(info.frame_period.count());
+        const double    fps = us > 0 ? 1'000'000.0 / static_cast<double>(us) : 0.0;
+        std::printf("period:  %lld us  (%.2f fps)\n", us, fps);
+    }
     std::printf("audio:   %u track(s) @ %u Hz, %u ch\n",
                 info.audio_track_count, info.audio_rate, info.audio_channels);
     return EXIT_SUCCESS;
