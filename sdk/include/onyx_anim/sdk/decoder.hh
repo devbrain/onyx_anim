@@ -101,9 +101,16 @@ namespace onyx_anim {
              *
              * Returns nullptr if the track index is invalid or the format has
              * no audio. Each track may only be taken once.
+             *
+             * If `io_observer` is non-null, the codec writes a non-owning
+             * pointer to the audio_source's underlying io_stream into it.
+             * The pointer is valid for the lifetime of the returned
+             * audio_source — useful for callers (e.g. onyx_anim::player)
+             * that want to derive playback time from the io cursor.
              */
             [[nodiscard]] virtual std::unique_ptr<musac::audio_source>
-                take_audio_track(unsigned int index);
+                take_audio_track(unsigned int index,
+                                 musac::io_stream** io_observer = nullptr);
 
             /**
              * Audio events triggered by the most recently decoded frame.

@@ -170,9 +170,13 @@ namespace onyx_anim {
 
                 // ---- tier 3 audio handoff ----
                 std::unique_ptr<musac::audio_source>
-                take_audio_track(unsigned int index) override {
-                    if (owned_audio_stream_) return nullptr; // already in tier 1
-                    return decoder_->take_audio_track(index);
+                take_audio_track(unsigned int index,
+                                 musac::io_stream** io_observer) override {
+                    if (owned_audio_stream_) {
+                        if (io_observer) *io_observer = nullptr;
+                        return nullptr; // already in tier 1
+                    }
+                    return decoder_->take_audio_track(index, io_observer);
                 }
 
                 void adopt_audio_stream(musac::audio_stream* stream) override {
@@ -209,6 +213,15 @@ namespace onyx_anim {
 
                 void set_loop(bool b) { loop_ = b; }
                 void set_preferred_format(pixel_format f) { preferred_format_ = f; }
+
+                void capture_audio_observer(musac::io_stream* io,
+                                            unsigned int bytes_per_second) {
+                    audio_io_observer_ = io;
+                    // Defensive: a zeroed bytes_per_second_ would divide
+                    // by zero in the audio-clock lambda. Skip binding in
+                    // that case — clock stays in realtime mode.
+                    bytes_per_second_ = bytes_per_second;
+                }
 
                 void install_owned_audio_stream(musac::audio_stream s) {
                     owned_audio_stream_ = std::make_unique<musac::audio_stream>(std::move(s));
@@ -279,35 +292,24 @@ namespace onyx_anim {
 
         // For Tier 1 (audio_device set), pull the source out NOW so we
         // can capture the io_stream observer before handing the source
-        // to musac.
+        // to musac. The observer lives as long as the audio_source the
+        // device is about to own, which we then store inside the player.
         if (has_audio && opts.audio_device != nullptr) {
             const auto t = dec->audio_track(track_index);
-            // We need the io_stream observer. The codec's take_audio_track
-            // hands us a fully-constructed audio_source whose internal
-            // io_stream is what we want to observe. We pull it out and
-            // immediately push it into the device.
-            auto src = dec->take_audio_track(track_index);
+            musac::io_stream* io_obs = nullptr;
+            auto src = dec->take_audio_track(track_index, &io_obs);
             if (src) {
-                // The io_stream lives inside the source. We expose it via
-                // a public helper on audio_source — but musac doesn't
-                // ship one. Workaround: the codec's pcm_audio_decoder
-                // holds the bytes via shared_ptr and reads via stream.
-                // We capture the observer at construction time inside
-                // the codec; the player then asks the source for its
-                // io_stream pointer by an adapter call.
-                //
-                // For now, we forgo the audio-clock optimisation when
-                // audio_device is set — fall back to clock::realtime.
-                // Future: extend musac's audio_source with a `peek_io()`
-                // accessor.
-                //
-                // (Tier 3 path with adopt_audio_stream lets the engine
-                // pass an io_stream observer in directly if it really
-                // wants the io-cursor clock.)
+                // bytes_per_second drives the io-cursor → microseconds
+                // conversion in the audio clock. For codecs that
+                // pre-decode to int8 PCM, the io is sample-byte-accurate
+                // and this gives us a sample-accurate clock.
+                const unsigned int bps =
+                    t.sample_rate * t.channels * (t.bits_per_sample / 8u);
+                p->capture_audio_observer(io_obs, bps);
+
                 auto stream_obj = opts.audio_device->create_stream(std::move(*src));
                 stream_obj.set_volume(opts.audio_volume);
                 p->install_owned_audio_stream(std::move(stream_obj));
-                (void) t;
             }
         }
         // If no audio path was set up, the clock stays in realtime mode

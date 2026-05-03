@@ -113,8 +113,15 @@ namespace onyx_anim {
             // then track the resulting audio_stream via adopt_audio_stream
             // for clock/lifecycle. Returns nullptr if audio_device was
             // already set in options.
+            //
+            // If `io_observer` is non-null, the player writes a non-owning
+            // pointer to the audio_source's underlying io_stream into it.
+            // The pointer is valid for the lifetime of the returned
+            // audio_source — engines can use it to drive an audio clock
+            // by reading the byte cursor.
             [[nodiscard]] virtual std::unique_ptr<musac::audio_source>
-                take_audio_track(unsigned int index = 0) = 0;
+                take_audio_track(unsigned int index = 0,
+                                 musac::io_stream** io_observer = nullptr) = 0;
             virtual void adopt_audio_stream(musac::audio_stream*) = 0;
 
             /// Direct access to the currently-bound audio_stream, if any

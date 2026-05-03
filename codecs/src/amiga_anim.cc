@@ -331,12 +331,17 @@ namespace onyx_anim {
                 }
 
                 [[nodiscard]] std::unique_ptr<musac::audio_source>
-                take_audio_track(unsigned int index) override {
+                take_audio_track(unsigned int index,
+                                 musac::io_stream** io_observer) override {
                     // Each track may only be taken once (decoder.hh contract).
-                    if (!audio_pcm_ || index != 0u || audio_taken_) return nullptr;
+                    if (!audio_pcm_ || index != 0u || audio_taken_) {
+                        if (io_observer) *io_observer = nullptr;
+                        return nullptr;
+                    }
                     audio_taken_ = true;
                     auto io = musac::io_from_memory(audio_pcm_->data(),
                                                     audio_pcm_->size());
+                    if (io_observer) *io_observer = io.get();
                     auto dec = std::make_unique<pcm_audio_decoder>(
                         "Amiga raw 8-bit signed PCM",
                         audio_rate_, audio_channels_, audio_pcm_);

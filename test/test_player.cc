@@ -5,6 +5,7 @@
 
 #include <onyx_image/surface.hpp>
 
+#include <musac/audio_source.hh>
 #include <musac/sdk/io_stream.hh>
 
 #include <filesystem>
@@ -91,6 +92,24 @@ TEST_CASE("player: take_audio_track delivers the source when no audio_device was
     REQUIRE(p->audio_track_count() > 0);
     auto src = p->take_audio_track(0);
     CHECK(src != nullptr);
+}
+
+TEST_CASE("player: take_audio_track exposes a usable io_stream observer") {
+    const auto path = smk_sample("SPLASH.SMK");
+    if (!exists(path)) return;
+
+    auto stream = musac::io_from_file(path.c_str(), "rb");
+    auto pr = onyx_anim::player::open(std::move(stream));
+    REQUIRE(pr.has_value());
+    auto p = std::move(*pr);
+
+    musac::io_stream* io = nullptr;
+    auto src = p->take_audio_track(0, &io);
+    REQUIRE(src);
+    REQUIRE(io != nullptr);
+
+    // Fresh source: cursor at byte 0.
+    CHECK(io->tell() == 0);
 }
 
 TEST_CASE("player: seek_to_time updates current_time and re-decodes that frame") {

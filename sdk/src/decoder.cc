@@ -26,7 +26,9 @@ namespace onyx_anim {
     }
 
     std::unique_ptr<musac::audio_source>
-    anim_decoder::take_audio_track([[maybe_unused]] unsigned int index) {
+    anim_decoder::take_audio_track([[maybe_unused]] unsigned int index,
+                                   musac::io_stream** io_observer) {
+        if (io_observer) *io_observer = nullptr;
         return nullptr;
     }
 
