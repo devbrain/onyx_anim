@@ -785,4 +785,128 @@ namespace anim {
         }
         return {};
     }
+
+    // ------------------------------------------------------------------------
+    // Op L (0x6C / 108). Mirrors ffmpeg's `decode_delta_l` in libavcodec/iff.c.
+    //
+    // Header (64 bytes):
+    //   bytes  0..31 : 8 longwords — per-plane *data* word-offsets
+    //   bytes 32..63 : 8 longwords — per-plane *opcode* word-offsets
+    // Both offsets are multiplied by 2 to get byte positions within the chunk.
+    //
+    // Per plane k (where data offset != 0): walk the opcode stream as a
+    // sequence of (offset_w, count_w) BE16 pairs. Stream ends when the next
+    // peeked u16 is 0xFFFF. Each record:
+    //   offset_w → byte position within plane k of the first 16-bit write
+    //   count_w  s16:
+    //     < 0 : read one BE16 datum, write |cnt| copies stepping by `dstpitch`
+    //     > 0 : read `cnt` BE16 data words, writing each at offset stepping by
+    //           `dstpitch`
+    //
+    // Write stride:
+    //   is_short == true  : dstpitch = planepitch_byte * planes
+    //                       (full row stride → vertical run within plane k)
+    //   is_short == false : dstpitch = 2  (consecutive 16-bit words →
+    //                       horizontal run starting at offset)
+    //
+    // The per-plane `offset_w` is in plane-local coordinates; convert to a
+    // byte address in the row-interleaved framebuffer with:
+    //   row    = (2*off) / planepitch_byte
+    //   colbyt = (2*off) % planepitch_byte
+    //   addr   = row * pitch + colbyt + k * planepitch
+    // ------------------------------------------------------------------------
+    result
+    apply_dlta_op_l(std::span<const std::uint8_t> dlta,
+                    std::uint8_t* fb,
+                    unsigned int width,
+                    unsigned int planes,
+                    bool         is_short,
+                    std::size_t  fb_size) {
+        if (dlta.size() <= 64) {
+            return make_unexpected("anim: DLTA opL too small");
+        }
+        const auto*       base = dlta.data();
+        const std::size_t cap  = dlta.size();
+
+        const std::size_t planepitch_byte =
+            (static_cast<std::size_t>(width) + 7u) / 8u;
+        const std::size_t planepitch =
+            ((static_cast<std::size_t>(width) + 15u) / 16u) * 2u;
+        const std::size_t pitch    = planepitch * planes;
+        const std::size_t dstpitch = is_short ? (planepitch_byte * planes) : 2u;
+
+        if (planepitch_byte == 0) {
+            return make_unexpected("anim: opL zero plane pitch");
+        }
+
+        // dptrs reads data offsets (table at 0); optrs reads opcode offsets
+        // (table at 32). Naming mirrors ffmpeg's poff0/poff1.
+        cursor dptrs{base, cap, 0};
+        cursor optrs{base, cap, 32};
+
+        for (unsigned int k = 0; k < planes; ++k) {
+            const auto poff_data = rd_be32(dptrs);
+            const auto poff_ops  = rd_be32(optrs);
+            if (poff_data < 0 || poff_ops < 0) {
+                return make_unexpected("anim: opL plane offset table truncated");
+            }
+            if (poff_data == 0) continue;
+
+            // Word offsets → byte offsets (×2). Bail on out-of-range to mirror
+            // ffmpeg behaviour (it returns silently rather than failing the
+            // whole frame; stay strict here so problems are visible).
+            const std::size_t data_pos = static_cast<std::size_t>(poff_data) * 2u;
+            const std::size_t ops_pos  = static_cast<std::size_t>(poff_ops)  * 2u;
+            if (data_pos >= cap || ops_pos >= cap) {
+                return make_unexpected("anim: opL plane stream offset past end");
+            }
+
+            cursor dgb{base, cap, data_pos};
+            cursor ogb{base, cap, ops_pos};
+
+            // Walk records until the terminator (peek == 0xFFFF) or stream end.
+            for (;;) {
+                if (ogb.pos + 4u > ogb.cap) break;
+                const std::uint16_t peek = static_cast<std::uint16_t>(
+                    (static_cast<unsigned>(ogb.p[ogb.pos]) << 8u) |
+                    ogb.p[ogb.pos + 1]);
+                if (peek == 0xFFFFu) break;
+
+                const int raw_off = rd_be16(ogb);
+                const int raw_cnt = rd_be16(ogb);
+                if (raw_off < 0 || raw_cnt < 0) {
+                    return make_unexpected("anim: opL record truncated");
+                }
+                const std::int16_t cnt =
+                    static_cast<std::int16_t>(static_cast<std::uint16_t>(raw_cnt));
+
+                const std::size_t off_bytes_in_plane =
+                    static_cast<std::size_t>(raw_off) * 2u;
+                const std::size_t row    = off_bytes_in_plane / planepitch_byte;
+                const std::size_t colbyt = off_bytes_in_plane % planepitch_byte;
+                std::size_t addr =
+                    row * pitch + colbyt + static_cast<std::size_t>(k) * planepitch;
+
+                if (cnt < 0) {
+                    const int data = rd_be16(dgb);
+                    if (data < 0) return make_unexpected("anim: opL run datum truncated");
+                    const int reps = -static_cast<int>(cnt);
+                    for (int i = 0; i < reps; ++i) {
+                        put_be16(fb, addr, fb_size, static_cast<std::uint16_t>(data));
+                        addr += dstpitch;
+                    }
+                } else {
+                    for (int i = 0; i < cnt; ++i) {
+                        const int data = rd_be16(dgb);
+                        if (data < 0) {
+                            return make_unexpected("anim: opL literal data truncated");
+                        }
+                        put_be16(fb, addr, fb_size, static_cast<std::uint16_t>(data));
+                        addr += dstpitch;
+                    }
+                }
+            }
+        }
+        return {};
+    }
 } // namespace anim

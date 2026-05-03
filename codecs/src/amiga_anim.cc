@@ -386,6 +386,14 @@ namespace onyx_anim {
                                 r = anim::apply_dlta_opj(dlta_span, fb_a_.data(),
                                                          width_, height_, planes_, fb_total);
                                 break;
+                            case 0x6C: // 'l' = decimal 108
+                                // Same `is_short` convention as ops 7/8: ANHD
+                                // bits & 1 == 0 → short/vertical (full-pitch
+                                // stride between writes).
+                                r = anim::apply_dlta_op_l(dlta_span, fb_a_.data(),
+                                                          width_, planes_, is_short,
+                                                          fb_total);
+                                break;
                             default:
                                 return make_unexpected<error_type>(
                                     "anim: unsupported ANIM op " + std::to_string(op));
@@ -399,7 +407,15 @@ namespace onyx_anim {
                         fb_chunky_.data(), width_, width_, height_);
 
                     if (!f.dlta.empty()) {
-                        std::swap(fb_a_, fb_b_);
+                        // ANHD `bits == 2` is the brush flag — ffmpeg's
+                        // libavcodec/iff.c skips the double-buffer swap for
+                        // these frames so the next delta lands on the
+                        // just-rendered frame instead of the 2-frames-old one.
+                        const std::uint32_t bits =
+                            f.anhd ? f.anhd->bits : 0u;
+                        if (bits != 2u) {
+                            std::swap(fb_a_, fb_b_);
+                        }
                     }
 
                     // Update palette if we have a CMAP (planar+EHB doubling).

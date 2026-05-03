@@ -87,6 +87,21 @@ namespace anim {
                        unsigned int  planes,
                        std::size_t   fb_size);
 
+    /// Op L (0x6C / 108) — per-plane (offset, count) stream. Two 8-longword
+    /// tables at the head of the chunk (offsets 0 and 32) hold word-offsets
+    /// (×2 for byte position) into the data and opcode streams respectively.
+    /// Each (cnt < 0) record runs one 16-bit datum |cnt| times; (cnt > 0)
+    /// emits `cnt` literal 16-bit words. Stream terminates on peek == 0xFFFF.
+    /// `is_short` selects the write stride: true → row-pitch (vertical run),
+    /// false → 2 (horizontal run). Maps to ANHD `bits & 1 == 0`.
+    [[nodiscard]] result
+        apply_dlta_op_l(std::span<const std::uint8_t> dlta,
+                        std::uint8_t* fb,
+                        unsigned int  width,
+                        unsigned int  planes,
+                        bool          is_short,
+                        std::size_t   fb_size);
+
     /**
      * Convert row-interleaved planar storage (the layout used both by ILBM
      * BODY chunks and by ANIM op-5 DLTA framebuffers) to chunky 8-bit

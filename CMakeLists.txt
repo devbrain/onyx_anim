@@ -209,6 +209,7 @@ if (NEUTRINO_ONYX_ANIM_BUILD_TESTS)
             animJ_5bpp.anim
             animJ_5bpp_2.anim
             animJ_ham6.anim
+            "anim108_ElGato(maybe_anim_1).anim"
         )
         foreach (_name IN LISTS _anim_supported)
             set(_path "${_anim_data}/${_name}")
