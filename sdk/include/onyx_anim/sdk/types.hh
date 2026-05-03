@@ -26,9 +26,32 @@ namespace onyx_anim {
         std::chrono::microseconds frame_period{0}; // average; 0 if variable
 
         unsigned int audio_track_count = 0;
+        // Track 0's quick-access fields. For multi-track files, query
+        // anim_decoder::audio_track(i) for full per-track info.
         unsigned int audio_rate = 0;
         unsigned int audio_channels = 0;
         unsigned int audio_bits = 0;
+    };
+
+    // ============================================================================
+    // Per-track audio metadata
+    // ============================================================================
+
+    /**
+     * Description of one of the file's audio tracks. Returned by
+     * `anim_decoder::audio_track(index)` for inspection before deciding
+     * which track to play (e.g. localized cutscenes with one track per
+     * language, multi-stem files with music + SFX on separate tracks).
+     */
+    struct audio_track_info {
+        unsigned int sample_rate = 0;            ///< Hz; 0 = absent
+        unsigned int channels    = 0;            ///< 1 = mono, 2 = stereo
+        unsigned int bits_per_sample = 0;        ///< usually 8 or 16
+        std::chrono::microseconds duration{0};   ///< 0 if unknown / streamed
+        // Free-form codec name, e.g. "Bink Audio (DCT)", "Bink Audio (RDFT)",
+        // "Smacker DPCM", "Amiga 8SVX". Static string — no allocation, no
+        // lifetime worries.
+        const char* codec_name = "";
     };
 
     struct frame_info {

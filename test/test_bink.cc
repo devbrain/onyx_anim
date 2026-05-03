@@ -12,6 +12,7 @@
 #include <cstdint>
 #include <filesystem>
 #include <string>
+#include <string_view>
 
 namespace {
 
@@ -89,10 +90,38 @@ TEST_CASE("bink: logo_lucas exposes its audio track") {
     REQUIRE(dec->open(stream.get()));
     CHECK(dec->info().audio_track_count == 1u);
 
+    // Per-track metadata exposed via audio_track(idx).
+    const auto t = dec->audio_track(0);
+    CHECK(t.sample_rate == 44000u);
+    CHECK(t.channels    == 2u);
+    CHECK(std::string_view{t.codec_name} == "Bink Audio (DCT)");
+    CHECK(t.duration.count() > 0);
+
+    // Out-of-range track index → zeroed struct.
+    const auto bad = dec->audio_track(99);
+    CHECK(bad.sample_rate == 0u);
+    CHECK(std::string_view{bad.codec_name}.empty());
+
     auto track = dec->take_audio_track(0);
     REQUIRE(track);
     // Each track may only be taken once.
     CHECK(dec->take_audio_track(0) == nullptr);
+}
+
+TEST_CASE("bink: phar_intro reports RDFT codec name") {
+    const auto path = sample("phar_intro.bik");
+    if (!exists(path)) return;
+    auto stream = musac::io_from_file(path.c_str(), "rb");
+    REQUIRE(stream);
+    auto& reg = onyx_anim::codec_registry::instance();
+    auto dec = reg.create_decoder(stream.get());
+    REQUIRE(dec);
+    REQUIRE(dec->open(stream.get()));
+    REQUIRE(dec->audio_track_count() == 1u);
+    const auto t = dec->audio_track(0);
+    CHECK(std::string_view{t.codec_name} == "Bink Audio (RDFT)");
+    CHECK(t.sample_rate == 44100u);
+    CHECK(t.channels    == 2u);
 }
 
 TEST_CASE("bink: BIK[b] revision opens + decodes (DEFENDALL.BIK)") {

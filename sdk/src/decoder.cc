@@ -20,6 +20,11 @@ namespace onyx_anim {
         return 0;
     }
 
+    audio_track_info
+    anim_decoder::audio_track([[maybe_unused]] unsigned int index) const noexcept {
+        return {};
+    }
+
     std::unique_ptr<musac::audio_source>
     anim_decoder::take_audio_track([[maybe_unused]] unsigned int index) {
         return nullptr;

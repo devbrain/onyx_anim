@@ -82,6 +82,18 @@ namespace onyx_anim {
             [[nodiscard]] virtual unsigned int audio_track_count() const noexcept;
 
             /**
+             * Per-track metadata — sample rate, channels, codec name, etc.
+             * Cheap to call (does not decode any audio); intended for the
+             * "which track should I play?" decision.
+             *
+             * Default impl returns a zeroed-out struct, so codecs that
+             * don't bother to override stay quiet. Returns the same default
+             * for out-of-range indices.
+             */
+            [[nodiscard]] virtual audio_track_info
+                audio_track(unsigned int index) const noexcept;
+
+            /**
              * Hand out a ready-to-play `musac::audio_source` for the given
              * audio track. The codec is responsible for pairing its decoder
              * with whatever io_stream feeds the audio bytes — callers just

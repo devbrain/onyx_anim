@@ -303,6 +303,24 @@ namespace onyx_anim {
                     return audio_pcm_int8_ ? 1u : 0u;
                 }
 
+                [[nodiscard]] audio_track_info
+                audio_track(unsigned int index) const noexcept override {
+                    if (!audio_pcm_int8_ || index != 0u) return {};
+                    audio_track_info t{};
+                    t.sample_rate     = audio_rate_;
+                    t.channels        = audio_channels_;
+                    t.bits_per_sample = 8u;
+                    if (audio_rate_ > 0u && audio_channels_ > 0u) {
+                        const std::int64_t frames =
+                            static_cast <std::int64_t>(audio_pcm_int8_->size()) /
+                            audio_channels_;
+                        t.duration = std::chrono::microseconds{
+                            frames * 1'000'000LL / audio_rate_};
+                    }
+                    t.codec_name = "Smacker DPCM";
+                    return t;
+                }
+
                 [[nodiscard]] std::unique_ptr<musac::audio_source>
                 take_audio_track(unsigned int index) override {
                     if (!audio_pcm_int8_ || index != 0u || audio_taken_) return nullptr;
