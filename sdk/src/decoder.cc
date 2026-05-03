@@ -1,5 +1,7 @@
 #include <onyx_anim/sdk/decoder.hh>
 
+#include <musac/audio_source.hh>
+
 namespace onyx_anim {
     result anim_decoder::open(musac::io_stream* stream) {
         decode_options opts{};
@@ -18,7 +20,8 @@ namespace onyx_anim {
         return 0;
     }
 
-    std::unique_ptr<musac::decoder> anim_decoder::take_audio_track([[maybe_unused]] unsigned int index) {
+    std::unique_ptr<musac::audio_source>
+    anim_decoder::take_audio_track([[maybe_unused]] unsigned int index) {
         return nullptr;
     }
 

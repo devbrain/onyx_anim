@@ -4,7 +4,6 @@
 #include <onyx_anim/sdk/types.hh>
 
 #include <onyx_image/surface.hpp>
-#include <musac/sdk/decoder.hh>
 #include <musac/sdk/io_stream.hh>
 
 #include <chrono>
@@ -12,6 +11,11 @@
 #include <memory>
 #include <span>
 #include <string_view>
+
+// Forward declaration — `take_audio_track` returns a unique_ptr to an
+// audio_source; consumers that actually use the returned object include
+// <musac/audio_source.hh> themselves.
+namespace musac { class audio_source; }
 
 namespace onyx_anim {
     /**
@@ -78,14 +82,16 @@ namespace onyx_anim {
             [[nodiscard]] virtual unsigned int audio_track_count() const noexcept;
 
             /**
-             * Hand out a musac::decoder for the given audio track. May be called
-             * even when the caller doesn't intend to also decode video — the audio
-             * decoder will drive the demuxer itself, skipping over video data.
+             * Hand out a ready-to-play `musac::audio_source` for the given
+             * audio track. The codec is responsible for pairing its decoder
+             * with whatever io_stream feeds the audio bytes — callers just
+             * plug the result into `device.create_stream(...)`.
              *
-             * Returns nullptr if the track index is invalid or the format has no
-             * audio. Each track may only be taken once.
+             * Returns nullptr if the track index is invalid or the format has
+             * no audio. Each track may only be taken once.
              */
-            [[nodiscard]] virtual std::unique_ptr <musac::decoder> take_audio_track(unsigned int index);
+            [[nodiscard]] virtual std::unique_ptr<musac::audio_source>
+                take_audio_track(unsigned int index);
 
             /**
              * Audio events triggered by the most recently decoded frame.

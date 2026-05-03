@@ -133,28 +133,29 @@ void upload_current_frame(anim_state& a, SDL_Renderer* r) {
 
 void fire_pending_audio_events(anim_state& a, musac::audio_device* device);
 
-// Build a tiny dummy io_stream for audio_source. Our decoder ignores the
-// io_stream (it owns a pre-loaded PCM buffer) but audio_source::open()
-// requires a non-null one.
-std::unique_ptr<musac::io_stream> dummy_io_stream() {
-    static const std::uint8_t kEmpty[1] = {0};
-    return musac::io_from_memory(kEmpty, sizeof(kEmpty));
-}
-
 void start_audio_track(anim_state& a, musac::audio_device* device) {
     a.audio_stream.reset(); // stop/destroy any previous stream
     if (!device || !a.decoder) return;
     if (a.decoder->audio_track_count() == 0u) return;
-    auto track = a.decoder->take_audio_track(0u);
-    if (!track) return;
+    auto src = a.decoder->take_audio_track(0u);
+    if (!src) return;
     try {
-        musac::audio_source src{std::move(track), dummy_io_stream()};
-        a.audio_stream.emplace(device->create_stream(std::move(src)));
+        a.audio_stream.emplace(device->create_stream(std::move(*src)));
         a.audio_stream->play();
     } catch (const std::exception& ex) {
         a.status = std::string("audio init failed: ") + ex.what();
         a.audio_stream.reset();
     }
+}
+
+// Resync the audio playback position after a video seek. Frames are
+// uniformly spaced so audio_pts = idx * frame_period.
+void sync_audio_to_frame(anim_state& a, unsigned int idx) {
+    if (!a.audio_stream || !a.decoder) return;
+    const auto period = a.decoder->info().frame_period;
+    if (period.count() <= 0) return;
+    const auto pts = period * static_cast<std::int64_t>(idx);
+    a.audio_stream->seek_to_time(pts);
 }
 
 bool open_path(anim_state& a, SDL_Renderer* r,
@@ -245,8 +246,9 @@ bool advance_one(anim_state& a, SDL_Renderer* r,
             return false;
         }
         a.frame_index = 0;
-        // rewind() atomically reset the audio cursor back to 0; if the audio
-        // stream had already stopped at end-of-buffer, kick it back into life.
+        // Player owns audio alignment now: rewind audio cursor to start, then
+        // (re-)arm playback if the stream had stopped at end-of-buffer.
+        sync_audio_to_frame(a, 0);
         if (a.audio_stream && !a.audio_stream->is_playing()) {
             a.audio_stream->play();
         }
@@ -274,9 +276,8 @@ void seek_to(anim_state& a, SDL_Renderer* r, unsigned int idx) {
     a.frame_index = fr->index;
     upload_current_frame(a, r);
     a.accumulator_us = 0.0;
-    // The decoder atomically rewrote the audio cursor inside seek_to_frame;
-    // if the audio stream had stopped (end-of-stream after a previous play
-    // through), re-arm playback so it picks up at the new cursor.
+    // The codec doesn't drive audio — the player owns alignment.
+    sync_audio_to_frame(a, idx);
     if (a.audio_stream && !a.audio_stream->is_playing()) {
         a.audio_stream->play();
     }
