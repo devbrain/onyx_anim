@@ -33,6 +33,7 @@ target_link_libraries(onyx_anim_codecs
         lib_atari_seq
         lib_amiga_anim
         lib_cdxl
+        lib_yafa
         neutrino::failsafe
 )
 
@@ -58,6 +59,7 @@ target_sources(onyx_anim_codecs PRIVATE
         src/atari_seq.cc
         src/amiga_anim.cc
         src/cdxl.cc
+        src/yafa.cc
         src/register_codecs.cc
 )
 
@@ -66,3 +68,4 @@ add_subdirectory(src/flc)
 add_subdirectory(src/atari_seq)
 add_subdirectory(src/amiga_anim)
 add_subdirectory(src/cdxl)
+add_subdirectory(src/yafa)

@@ -1,0 +1,29 @@
+# ============================================================================
+# lib_yafa — YAFA animation byte-decoder primitives
+#
+# OBJECT library, internal to onyx_anim_codecs. Pure byte-span functions for
+# parsing IFF chunks and decompressing XPK FAST/NUKE + YAFA delta frames.
+# Free of musac/onyx_image deps; big-endian throughout (Amiga m68k heritage).
+# ============================================================================
+
+add_library(lib_yafa OBJECT
+        src/header.cc
+        src/decoders.cc
+)
+
+target_compile_features(lib_yafa PUBLIC cxx_std_20)
+
+target_include_directories(lib_yafa
+        PUBLIC
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+)
+
+# PUBLIC because yafa/types.hh re-exports onyx_anim::expected and
+# bytes::byte_reader_be — consumers of lib_yafa's headers need both
+# include trees on their compile path.
+target_link_libraries(lib_yafa PUBLIC onyx_anim_sdk lib_bytes)
+
+set_target_properties(lib_yafa PROPERTIES POSITION_INDEPENDENT_CODE ON)
+
+neutrino_target_warnings(lib_yafa)
+neutrino_target_sanitizers(lib_yafa)
