@@ -35,6 +35,7 @@ target_link_libraries(onyx_anim_codecs
         lib_cdxl
         lib_yafa
         lib_dpan
+        lib_smk
         neutrino::failsafe
 )
 
@@ -72,3 +73,4 @@ add_subdirectory(src/amiga_anim)
 add_subdirectory(src/cdxl)
 add_subdirectory(src/yafa)
 add_subdirectory(src/dpan)
+add_subdirectory(src/smk)

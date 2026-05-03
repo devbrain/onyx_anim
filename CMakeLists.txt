@@ -281,6 +281,40 @@ if (NEUTRINO_ONYX_ANIM_BUILD_TESTS)
             endif ()
         endforeach ()
     endif ()
+
+    # ------------------------------------------------------------------------
+    # Smacker cross-check vs ffmpeg's libavcodec/smacker.c
+    #
+    # Every file in data/smacker/ should bit-match ffmpeg's output frame
+    # for frame. EARTH.SMK is truncated mid-stream — both decoders emit
+    # whatever fits in the file, and the common prefix matches.
+    # ------------------------------------------------------------------------
+    set(_smk_data "${PROJECT_SOURCE_DIR}/data/smacker")
+    if (FFMPEG_EXECUTABLE AND EXISTS "${_smk_data}")
+        set(_smk_supported
+            1.smk
+            1_2.SMK
+            20130507_audio-distortion.smk
+            EARTH.SMK
+            FMAN.SMK
+            SPLASH.SMK
+            WMAN.SMK
+            example.smk
+            intro.smk
+            test.smk
+            wetlogo.smk
+        )
+        foreach (_name IN LISTS _smk_supported)
+            set(_path "${_smk_data}/${_name}")
+            if (EXISTS "${_path}")
+                add_test(
+                    NAME    smk_xcheck.${_name}
+                    COMMAND bash "${PROJECT_SOURCE_DIR}/scripts/smk_cross_check.sh"
+                            "${_path}" "$<TARGET_FILE:anim_to_ppm>" "${FFMPEG_EXECUTABLE}"
+                )
+            endif ()
+        endforeach ()
+    endif ()
 endif ()
 
 # ============================================================================
