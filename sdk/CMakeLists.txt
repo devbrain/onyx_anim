@@ -47,4 +47,5 @@ target_sources(onyx_anim_sdk PRIVATE
         src/codec_registry.cc
         src/decoder.cc
         src/convert.cc
+        src/frame_clock.cc
 )

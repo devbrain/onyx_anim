@@ -12,6 +12,7 @@ add_executable(onyx_anim_tests
         test_smk.cc
         test_bink.cc
         test_convert.cc
+        test_frame_clock.cc
         flc/test_header.cc
         flc/test_chunks.cc
         flc/test_decoders.cc
