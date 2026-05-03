@@ -92,3 +92,98 @@ TEST_CASE("player: take_audio_track delivers the source when no audio_device was
     auto src = p->take_audio_track(0);
     CHECK(src != nullptr);
 }
+
+TEST_CASE("player: seek_to_time updates current_time and re-decodes that frame") {
+    const auto path = smk_sample("SPLASH.SMK");
+    if (!exists(path)) return;
+
+    auto stream = musac::io_from_file(path.c_str(), "rb");
+    auto pr = onyx_anim::player::open(std::move(stream));
+    REQUIRE(pr.has_value());
+    auto p = std::move(*pr);
+    p->play();
+
+    const auto period = p->info().frame_period;
+    const auto target = period * 10;
+
+    p->seek_to_time(target);
+    CHECK(p->current_time() == target);
+
+    onyx_image::memory_surface out;
+    CHECK(p->advance_to_time(target, out));
+}
+
+TEST_CASE("player: rewind() resets current_time to zero") {
+    const auto path = smk_sample("SPLASH.SMK");
+    if (!exists(path)) return;
+
+    auto stream = musac::io_from_file(path.c_str(), "rb");
+    auto pr = onyx_anim::player::open(std::move(stream));
+    REQUIRE(pr.has_value());
+    auto p = std::move(*pr);
+    p->play();
+
+    const auto period = p->info().frame_period;
+    p->seek_to_time(period * 5);
+    REQUIRE(p->current_time() == period * 5);
+
+    p->rewind();
+    CHECK(p->current_time() == std::chrono::microseconds{0});
+
+    onyx_image::memory_surface out;
+    CHECK(p->advance_to_time(std::chrono::microseconds{0}, out));
+}
+
+TEST_CASE("player: end-of-stream callback fires when last frame is past, no loop") {
+    const auto path = smk_sample("SPLASH.SMK");
+    if (!exists(path)) return;
+
+    auto stream = musac::io_from_file(path.c_str(), "rb");
+    onyx_anim::player_options opts;
+    opts.loop = false;
+    auto pr = onyx_anim::player::open(std::move(stream), opts);
+    REQUIRE(pr.has_value());
+    auto p = std::move(*pr);
+
+    bool eos_fired = false;
+    p->on_end_of_stream([&] { eos_fired = true; });
+    p->play();
+
+    const auto& info = p->info();
+    const auto past_end = info.frame_period * (info.frame_count + 1);
+
+    onyx_image::memory_surface out;
+    p->advance_to_time(past_end, out);
+
+    CHECK(eos_fired);
+    CHECK(p->eof());
+    CHECK_FALSE(p->is_playing());
+}
+
+TEST_CASE("player: looping wraps around at duration without firing eos") {
+    const auto path = smk_sample("SPLASH.SMK");
+    if (!exists(path)) return;
+
+    auto stream = musac::io_from_file(path.c_str(), "rb");
+    onyx_anim::player_options opts;
+    opts.loop = true;
+    auto pr = onyx_anim::player::open(std::move(stream), opts);
+    REQUIRE(pr.has_value());
+    auto p = std::move(*pr);
+
+    bool eos_fired = false;
+    p->on_end_of_stream([&] { eos_fired = true; });
+    p->play();
+
+    const auto& info = p->info();
+    REQUIRE(info.duration.count() > 0);
+
+    onyx_image::memory_surface out;
+    // Drive past the end — looping should re-decode early frames.
+    const auto past_end = info.duration + info.frame_period * 3;
+    p->advance_to_time(past_end, out);
+
+    CHECK_FALSE(eos_fired);
+    CHECK_FALSE(p->eof());
+    CHECK(p->is_playing());
+}

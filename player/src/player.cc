@@ -131,11 +131,14 @@ namespace onyx_anim {
                         return false;
                     }
 
-                    // If we need to skip backwards or jump forward more
-                    // than 1 frame, seek (delta-coded codecs replay
-                    // from previous keyframe).
-                    if (target_idx < last_decoded_idx_ ||
-                        target_idx > last_decoded_idx_ + 1u) {
+                    // If we have a "last decoded frame" anchor, see if
+                    // we need to seek before decoding the next one.
+                    // Without an anchor (initial decode, post-wrap,
+                    // post-explicit-seek) we trust the decoder's cursor
+                    // and just decode the next frame it offers.
+                    if (last_decoded_pts_.count() >= 0 &&
+                        (target_idx < last_decoded_idx_ ||
+                         target_idx > last_decoded_idx_ + 1u)) {
                         if (!decoder_->seek_to_frame(target_idx)) {
                             // Fall back to time-seek.
                             decoder_->seek_to_time(target_idx * period);
