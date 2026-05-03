@@ -17,7 +17,6 @@
 #include <onyx_image/surface.hpp>
 
 #include <musac/audio_device.hh>
-#include <musac/audio_source.hh>
 #include <musac/audio_system.hh>
 #include <musac/codecs/register_codecs.hh>
 #include <musac/sdk/decoders_registry.hh>
@@ -84,11 +83,6 @@ namespace {
         bool                                loop = true;
         std::string                         source_path;
         std::string                         status;
-
-        // Event-driven one-shot streams (e.g. ANIM+SLA SCTL triggers).
-        // Pruned each tick when their underlying audio_stream finishes.
-        std::vector<musac::audio_stream>    event_streams;
-        static constexpr std::size_t        kMaxEventStreams = 16;
     };
 
     void destroy_texture(app_state& a) {
@@ -120,34 +114,11 @@ namespace {
         SDL_UpdateTexture(a.texture, nullptr, a.frame.data(), w * 4);
     }
 
-    void fire_pending_events(app_state& a, musac::audio_device* device) {
-        if (!device || !a.player) return;
-        std::erase_if(a.event_streams,
-                      [](const musac::audio_stream& s) { return !s.is_playing(); });
-
-        for (const auto& ev : a.player->pending_audio_events()) {
-            if (!ev.sound_bytes || ev.sound_bytes->empty()) continue;
-            if (a.event_streams.size() >= app_state::kMaxEventStreams) break;
-            try {
-                auto io = musac::io_from_memory(ev.sound_bytes->data(),
-                                                ev.sound_bytes->size());
-                musac::audio_source src{std::move(io)};
-                auto stream = device->create_stream(std::move(src));
-                const int iterations = ev.repeats == 0u ? 0 : ev.repeats;
-                stream.play(iterations, std::chrono::microseconds{});
-                a.event_streams.push_back(std::move(stream));
-            } catch (const std::exception&) {
-                // Best-effort.
-            }
-        }
-    }
-
     bool open_path(app_state& a, SDL_Renderer* r,
                    musac::audio_device* device, const char* path) {
         // Drop the previous player BEFORE the audio stream it owns goes
         // away — order matters because the audio thread reads through
         // state owned by player_impl.
-        a.event_streams.clear();
         a.player.reset();
 
         auto stream = musac::io_from_file(path, "rb");
@@ -173,11 +144,12 @@ namespace {
         a.source_path = path;
         a.status = path;
 
-        // Render the first frame immediately.
+        // Render the first frame immediately. The player automatically
+        // fires any event-driven audio (ANIM+SLA SCTL) attached to this
+        // frame because we passed an audio_device in the options.
         if (a.player->advance_to_time(std::chrono::microseconds{0}, a.frame)) {
             upload_frame(a, r);
         }
-        fire_pending_events(a, device);
         return true;
     }
 } // namespace
@@ -269,12 +241,12 @@ int main(int argc, char* argv[]) {
         }
 
         // Tick the player. Returns true when a fresh frame landed in
-        // st.frame; in that case we re-upload the texture and fire any
-        // event-driven audio that came with it.
+        // st.frame; in that case we just re-upload the texture. Audio
+        // (streaming + event-driven) is handled internally because we
+        // passed an audio_device in the player options.
         if (st.player) {
             if (st.player->tick(st.frame)) {
                 upload_frame(st, renderer);
-                fire_pending_events(st, device);
             }
         }
 
@@ -377,7 +349,6 @@ int main(int argc, char* argv[]) {
 
     // Tear down in reverse construction order — player owns the audio
     // stream pulling from the audio_device, so it must die first.
-    st.event_streams.clear();
     st.player.reset();
     audio_device.reset();
     musac::audio_system::done();

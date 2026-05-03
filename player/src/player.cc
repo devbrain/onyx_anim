@@ -6,6 +6,7 @@
 
 #include <algorithm>
 #include <chrono>
+#include <vector>
 
 namespace onyx_anim {
     namespace {
@@ -158,6 +159,7 @@ namespace onyx_anim {
                         if (error_callback_) error_callback_(cr.error());
                         return false;
                     }
+                    fire_pending_events();
                     return true;
                 }
 
@@ -231,7 +233,47 @@ namespace onyx_anim {
                     }
                 }
 
+                void enable_event_audio(musac::audio_device* dev,
+                                        unsigned int max_streams) {
+                    event_audio_device_ = dev;
+                    max_event_streams_  = max_streams;
+                }
+
             private:
+                void fire_pending_events() {
+                    if (!event_audio_device_ || !decoder_) return;
+                    const auto events = decoder_->pending_audio_events();
+                    if (events.empty() && event_streams_.empty()) return;
+
+                    // Prune finished one-shots first so new triggers
+                    // don't get dropped against a full slot table.
+                    std::erase_if(event_streams_,
+                                  [](const musac::audio_stream& s) {
+                                      return !s.is_playing();
+                                  });
+
+                    for (const auto& ev : events) {
+                        if (!ev.sound_bytes || ev.sound_bytes->empty()) continue;
+                        if (event_streams_.size() >= max_event_streams_) break;
+                        try {
+                            auto io = musac::io_from_memory(
+                                ev.sound_bytes->data(),
+                                ev.sound_bytes->size());
+                            musac::audio_source src{std::move(io)};
+                            auto stream = event_audio_device_->create_stream(
+                                std::move(src));
+                            // SCTL.repeats == 0 means "loop forever";
+                            // musac uses 0 for the same semantic.
+                            stream.play(static_cast<unsigned int>(ev.repeats),
+                                        std::chrono::microseconds{});
+                            event_streams_.push_back(std::move(stream));
+                        } catch (const std::exception&) {
+                            // Best-effort: a malformed sample shouldn't
+                            // kill video playback.
+                        }
+                    }
+                }
+
                 void bind_audio_clock() {
                     clock_.use_audio_clock(
                         [io = audio_io_observer_, bps = bytes_per_second_]() {
@@ -261,6 +303,13 @@ namespace onyx_anim {
 
                 std::function<void()>             eos_callback_;
                 std::function<void(error_type)>   error_callback_;
+
+                // Auto-fired one-shot streams for codec-driven audio
+                // events (e.g. ANIM+SLA SCTL triggers). Disabled when
+                // `event_audio_device_` is null (Tier 3 or no device).
+                musac::audio_device*              event_audio_device_ = nullptr;
+                unsigned int                      max_event_streams_ = 0;
+                std::vector<musac::audio_stream>  event_streams_;
         };
     } // namespace
 
@@ -290,26 +339,34 @@ namespace onyx_anim {
         const auto track_index = opts.audio_track;
         const bool has_audio = track_count > 0 && track_index < track_count;
 
-        // For Tier 1 (audio_device set), pull the source out NOW so we
-        // can capture the io_stream observer before handing the source
-        // to musac. The observer lives as long as the audio_source the
-        // device is about to own, which we then store inside the player.
-        if (has_audio && opts.audio_device != nullptr) {
-            const auto t = dec->audio_track(track_index);
-            musac::io_stream* io_obs = nullptr;
-            auto src = dec->take_audio_track(track_index, &io_obs);
-            if (src) {
-                // bytes_per_second drives the io-cursor → microseconds
-                // conversion in the audio clock. For codecs that
-                // pre-decode to int8 PCM, the io is sample-byte-accurate
-                // and this gives us a sample-accurate clock.
-                const unsigned int bps =
-                    t.sample_rate * t.channels * (t.bits_per_sample / 8u);
-                p->capture_audio_observer(io_obs, bps);
+        // Tier 1 setup. Two independent things may happen when the
+        // engine supplies an audio_device:
+        //   1. Streaming PCM track → owned audio_stream + io-cursor clock
+        //   2. Event-driven one-shots (e.g. ANIM+SLA SCTL) → auto-fire
+        // Files may have one, the other, both, or neither.
+        if (opts.audio_device != nullptr) {
+            if (has_audio) {
+                const auto t = dec->audio_track(track_index);
+                musac::io_stream* io_obs = nullptr;
+                auto src = dec->take_audio_track(track_index, &io_obs);
+                if (src) {
+                    // bytes_per_second drives the io-cursor → microseconds
+                    // conversion in the audio clock. For codecs that
+                    // pre-decode to int8 PCM, the io is sample-byte-
+                    // accurate and this gives us a sample-accurate clock.
+                    const unsigned int bps =
+                        t.sample_rate * t.channels * (t.bits_per_sample / 8u);
+                    p->capture_audio_observer(io_obs, bps);
 
-                auto stream_obj = opts.audio_device->create_stream(std::move(*src));
-                stream_obj.set_volume(opts.audio_volume);
-                p->install_owned_audio_stream(std::move(stream_obj));
+                    auto stream_obj = opts.audio_device->create_stream(std::move(*src));
+                    stream_obj.set_volume(opts.audio_volume);
+                    p->install_owned_audio_stream(std::move(stream_obj));
+                }
+            }
+
+            if (opts.auto_fire_audio_events) {
+                p->enable_event_audio(opts.audio_device,
+                                      opts.max_concurrent_event_streams);
             }
         }
         // If no audio path was set up, the clock stays in realtime mode

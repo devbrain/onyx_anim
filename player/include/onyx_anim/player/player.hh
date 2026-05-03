@@ -46,6 +46,18 @@ namespace onyx_anim {
         /// Ignored when `audio_device` is null.
         float        audio_volume = 1.0f;
 
+        /// When true (and `audio_device` is set), the player automatically
+        /// spawns one-shot streams for each `audio_event` reported by the
+        /// codec (e.g. ANIM+SLA SCTL triggers) on every tick that decodes
+        /// a new frame. Engines that want manual control set this false
+        /// and call `pending_audio_events()` themselves.
+        bool         auto_fire_audio_events = true;
+
+        /// Cap on concurrent event-driven streams. Streams that have
+        /// finished playing are pruned each tick; new triggers past the
+        /// cap are dropped. Ignored unless `auto_fire_audio_events`.
+        unsigned int max_concurrent_event_streams = 16;
+
         /// Forwarded to anim_decoder::open. Engines wanting non-default
         /// max dimensions / preferred codec format can tweak it.
         decode_options decode = {};
