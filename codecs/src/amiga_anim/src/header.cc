@@ -3,42 +3,27 @@
 #include <cstring>
 
 namespace anim {
-    namespace {
-        std::uint16_t r16(const std::uint8_t* p) noexcept {
-            return static_cast<std::uint16_t>(
-                (static_cast<unsigned>(p[0]) << 8u) | p[1]);
-        }
-        std::int16_t  rs16(const std::uint8_t* p) noexcept {
-            return static_cast<std::int16_t>(r16(p));
-        }
-        std::uint32_t r32(const std::uint8_t* p) noexcept {
-            return (static_cast<std::uint32_t>(p[0]) << 24u) |
-                   (static_cast<std::uint32_t>(p[1]) << 16u) |
-                   (static_cast<std::uint32_t>(p[2]) <<  8u) |
-                    static_cast<std::uint32_t>(p[3]);
-        }
-    } // namespace
-
     expected<bmhd>
     parse_bmhd(std::span<const std::uint8_t> data) {
         if (data.size() < 20) {
             return make_unexpected("anim: BMHD truncated");
         }
-        const auto* p = data.data();
+        byte_reader br{data};
         bmhd h{};
-        h.width        = r16(p + 0);
-        h.height       = r16(p + 2);
-        h.x_origin     = rs16(p + 4);
-        h.y_origin     = rs16(p + 6);
-        h.planes       = p[8];
-        h.mask         = static_cast<masking>(p[9]);
-        h.compress     = static_cast<compression>(p[10]);
-        h.pad1         = p[11];
-        h.transparent  = r16(p + 12);
-        h.x_aspect     = p[14];
-        h.y_aspect     = p[15];
-        h.page_width   = rs16(p + 16);
-        h.page_height  = rs16(p + 18);
+        std::uint8_t mask_byte    = 0;
+        std::uint8_t compress_byte = 0;
+        br >> h.width >> h.height
+           >> h.x_origin >> h.y_origin
+           >> h.planes
+           >> mask_byte
+           >> compress_byte
+           >> h.pad1
+           >> h.transparent
+           >> h.x_aspect >> h.y_aspect
+           >> h.page_width >> h.page_height;
+        h.mask     = static_cast<masking>(mask_byte);
+        h.compress = static_cast<compression>(compress_byte);
+        if (!br) return make_unexpected("anim: BMHD truncated mid-read");
         return h;
     }
 
@@ -50,21 +35,17 @@ namespace anim {
             // up to `bits` (24 bytes) — pad[16] is optional.
             return make_unexpected("anim: ANHD truncated");
         }
-        const auto* p = data.data();
+        byte_reader br{data};
         anhd h{};
-        h.operation  = p[0];
-        h.mask       = p[1];
-        h.w          = r16(p + 2);
-        h.h          = r16(p + 4);
-        h.x          = rs16(p + 6);
-        h.y          = rs16(p + 8);
-        h.abstime    = r32(p + 10);
-        h.reltime    = r32(p + 14);
-        h.interleave = p[18];
-        h.pad0       = p[19];
-        h.bits       = r32(p + 20);
+        br >> h.operation >> h.mask
+           >> h.w >> h.h
+           >> h.x >> h.y
+           >> h.abstime >> h.reltime
+           >> h.interleave >> h.pad0
+           >> h.bits;
+        if (!br) return make_unexpected("anim: ANHD truncated mid-read");
         if (data.size() >= 40) {
-            std::memcpy(h.pad, p + 24, 16);
+            std::memcpy(h.pad, data.data() + 24, 16);
         }
         return h;
     }
@@ -110,6 +91,10 @@ namespace anim {
         if (data.size() < 4) {
             return make_unexpected("anim: CAMG truncated");
         }
-        return r32(data.data());
+        byte_reader br{data};
+        std::uint32_t v = 0;
+        br >> v;
+        if (!br) return make_unexpected("anim: CAMG truncated mid-read");
+        return v;
     }
 } // namespace anim

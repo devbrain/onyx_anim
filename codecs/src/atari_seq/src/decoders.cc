@@ -112,14 +112,14 @@ namespace atari_seq {
             // are touched. Same masking pattern as Randelshofer.
             const unsigned shift = w.shift;
             const unsigned inv_shift = 8u - shift;
-            const std::uint8_t inv_mask = static_cast <std::uint8_t>((0xFFu << inv_shift) & 0xFFu);
-            const std::uint8_t xor_inv_mask = static_cast <std::uint8_t>(0xFFu >> shift);
+            const auto inv_mask = static_cast <std::uint8_t>((0xFFu << inv_shift) & 0xFFu);
+            const auto xor_inv_mask = static_cast <std::uint8_t>(0xFFu >> shift);
 
-            const std::uint8_t shifted_d1 = static_cast <std::uint8_t>(d1 >> shift);
-            const std::uint8_t shifted_d2 =
+            const auto shifted_d1 = static_cast <std::uint8_t>(d1 >> shift);
+            const auto shifted_d2 =
                 static_cast <std::uint8_t>(((d1 << inv_shift) & inv_mask)
                                            | static_cast <unsigned>(d2 >> shift));
-            const std::uint8_t shifted_d3 = static_cast <std::uint8_t>((d2 << inv_shift) & 0xFFu);
+            const auto shifted_d3 = static_cast <std::uint8_t>((d2 << inv_shift) & 0xFFu);
 
             if (xor_op) {
                 w.fb[w.si] = static_cast <std::uint8_t>(
@@ -182,7 +182,7 @@ namespace atari_seq {
                         static_cast <std::size_t>(planes) * bitplane_stride);
         }
 
-        walker w;
+        walker w{};
         init_walker(w, fb_planar, scanline_stride, bitplane_stride, planes,
                     x_offset, y_offset, rect_width, rect_height, frame_width);
 

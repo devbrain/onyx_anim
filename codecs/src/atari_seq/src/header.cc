@@ -1,8 +1,8 @@
 #include <atari_seq/header.hh>
 
 namespace atari_seq {
-    expected<file_header>
-    parse_file_header(std::span<const std::uint8_t> data) {
+    expected <file_header>
+    parse_file_header(std::span <const std::uint8_t> data) {
         if (data.size() < kFileHeaderSize) {
             return make_unexpected("seq: file header truncated");
         }
@@ -24,8 +24,8 @@ namespace atari_seq {
         return h;
     }
 
-    expected<cel_header>
-    parse_cel_header(std::span<const std::uint8_t> data) {
+    expected <cel_header>
+    parse_cel_header(std::span <const std::uint8_t> data) {
         if (data.size() < kCelHeaderSize) {
             return make_unexpected("seq: cel header truncated");
         }
@@ -60,8 +60,8 @@ namespace atari_seq {
         if (sm_byte > 1) {
             return make_unexpected("seq: invalid storage method");
         }
-        h.op = static_cast<operation>(op_byte);
-        h.sm = static_cast<storage>(sm_byte);
+        h.op = static_cast <operation>(op_byte);
+        h.sm = static_cast <storage>(sm_byte);
 
         br >> h.data_size;
         // 60 bytes reserved tail — not read; caller is expected to seek past
@@ -73,12 +73,12 @@ namespace atari_seq {
         return h;
     }
 
-    expected<resolution_info>
+    expected <resolution_info>
     info_for_resolution(std::uint16_t resolution) {
         switch (resolution) {
-            case 0:  return resolution_info{320, 200, 4, 16};
-            case 1:  return resolution_info{640, 200, 2, 4};
-            case 2:  return resolution_info{640, 400, 1, 2};
+            case 0: return resolution_info{320, 200, 4, 16};
+            case 1: return resolution_info{640, 200, 2, 4};
+            case 2: return resolution_info{640, 400, 1, 2};
             default: return make_unexpected("seq: invalid resolution");
         }
     }

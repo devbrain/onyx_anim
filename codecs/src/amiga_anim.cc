@@ -70,14 +70,12 @@ namespace onyx_anim {
         [[nodiscard]] sctl parse_sctl(std::span<const std::uint8_t> data) {
             sctl s{};
             if (data.size() < 12u) return s;
-            const auto* p = data.data();
-            s.command   = p[0];
-            s.volume    = p[1];
-            s.sound     = static_cast<std::uint16_t>((p[2] << 8) | p[3]);
-            s.repeats   = static_cast<std::uint16_t>((p[4] << 8) | p[5]);
-            s.channel   = static_cast<std::uint16_t>((p[6] << 8) | p[7]);
-            s.frequency = static_cast<std::uint16_t>((p[8] << 8) | p[9]);
-            s.flags     = static_cast<std::uint16_t>((p[10] << 8) | p[11]);
+            anim::byte_reader br{data};
+            br >> s.command >> s.volume
+               >> s.sound >> s.repeats
+               >> s.channel >> s.frequency
+               >> s.flags;
+            // 4 trailing pad bytes intentionally not read.
             return s;
         }
 
@@ -91,19 +89,13 @@ namespace onyx_anim {
             std::vector<std::shared_ptr<const std::vector<std::uint8_t>>> out;
             if (file_bytes.size() < 12u) return out;
 
-            auto rd_u32be = [](const std::uint8_t* p) -> std::uint32_t {
-                return (static_cast<std::uint32_t>(p[0]) << 24) |
-                       (static_cast<std::uint32_t>(p[1]) << 16) |
-                       (static_cast<std::uint32_t>(p[2]) << 8)  |
-                        static_cast<std::uint32_t>(p[3]);
-            };
-
             // Outer FORM ANIM header at offset 0..11.
             if (std::memcmp(file_bytes.data(), "FORM", 4) != 0 ||
                 std::memcmp(file_bytes.data() + 8, "ANIM", 4) != 0) {
                 return out;
             }
-            const std::uint32_t outer_size = rd_u32be(file_bytes.data() + 4);
+            const std::uint32_t outer_size =
+                bytes::read_u32be(file_bytes.data() + 4);
             const std::size_t outer_end =
                 std::min<std::size_t>(file_bytes.size(), 8u + outer_size);
 
@@ -111,7 +103,7 @@ namespace onyx_anim {
             std::size_t pos = 12u;
             while (pos + 8u <= outer_end) {
                 const auto* p = file_bytes.data() + pos;
-                const std::uint32_t sz = rd_u32be(p + 4);
+                const std::uint32_t sz = bytes::read_u32be(p + 4);
                 const std::size_t chunk_end = pos + 8u + sz;
                 if (chunk_end > outer_end) break;
                 if (std::memcmp(p, "FORM", 4) == 0 && sz >= 4u) {
