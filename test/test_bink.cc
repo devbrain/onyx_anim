@@ -5,6 +5,7 @@
 
 #include <onyx_image/surface.hpp>
 
+#include <musac/audio_source.hh>
 #include <musac/sdk/io_stream.hh>
 
 #include <array>
@@ -73,6 +74,25 @@ TEST_CASE("bink: sniff + open + decode-first-frame across the corpus") {
         CHECK(static_cast<unsigned int>(surf.width())  == c.width);
         CHECK(static_cast<unsigned int>(surf.height()) == c.height);
     }
+}
+
+TEST_CASE("bink: logo_lucas exposes its audio track") {
+    // logo_lucas.bik has 1 stereo Bink Audio (DCT) track at 44 kHz.
+    const auto path = sample("logo_lucas.bik");
+    if (!exists(path)) return;
+
+    auto stream = musac::io_from_file(path.c_str(), "rb");
+    REQUIRE(stream);
+    auto& reg = onyx_anim::codec_registry::instance();
+    auto dec = reg.create_decoder(stream.get());
+    REQUIRE(dec);
+    REQUIRE(dec->open(stream.get()));
+    CHECK(dec->info().audio_track_count == 1u);
+
+    auto track = dec->take_audio_track(0);
+    REQUIRE(track);
+    // Each track may only be taken once.
+    CHECK(dec->take_audio_track(0) == nullptr);
 }
 
 TEST_CASE("bink: BIK[b] revision is rejected (not yet supported)") {

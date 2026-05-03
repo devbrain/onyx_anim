@@ -15,6 +15,7 @@ add_library(lib_bink OBJECT
         src/bundle.cc
         src/idct.cc
         src/decoders.cc
+        src/audio.cc
 )
 
 target_compile_features(lib_bink PUBLIC cxx_std_20)
@@ -26,9 +27,21 @@ target_include_directories(lib_bink
 
 # PUBLIC: bink/types.hh re-exports onyx_anim::expected and bytes::byte_reader,
 # so consumers need both include trees on their compile path.
-target_link_libraries(lib_bink PUBLIC onyx_anim_sdk lib_bytes)
+target_link_libraries(lib_bink
+        PUBLIC onyx_anim_sdk lib_bytes
+        PRIVATE lib_pocketfft
+)
 
 set_target_properties(lib_bink PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
 neutrino_target_warnings(lib_bink)
 neutrino_target_sanitizers(lib_bink)
+
+# audio.cc instantiates PocketFFT templates that intentionally compare
+# `float` to `double` literals (`if (fct != 1.)`). Our default warning
+# set treats `-Wdouble-promotion` as an error; relax that just for this
+# translation unit so we don't have to patch the upstream header.
+set_source_files_properties(src/audio.cc
+        PROPERTIES COMPILE_OPTIONS
+        "-Wno-double-promotion;-Wno-shadow;-Wno-sign-conversion;-Wno-conversion;-Wno-useless-cast")
+

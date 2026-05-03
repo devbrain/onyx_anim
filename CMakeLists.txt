@@ -56,6 +56,19 @@ neutrino_fetch_musac()
 include(${NEUTRINO_CMAKE_DIR}/deps/expected.cmake)
 neutrino_fetch_expected()
 
+# PocketFFT — header-only FFT library used by Bink Audio (RDFT + DCT
+# transforms). Vendored via FetchContent so the 3.8k-line header doesn't
+# clutter our tree but the build is still self-contained.
+FetchContent_Declare(pocketfft
+        GIT_REPOSITORY https://gitlab.mpcdf.mpg.de/mtr/pocketfft.git
+        GIT_TAG        cpp
+        GIT_SHALLOW    TRUE
+)
+FetchContent_MakeAvailable(pocketfft)
+add_library(lib_pocketfft INTERFACE)
+target_include_directories(lib_pocketfft INTERFACE ${pocketfft_SOURCE_DIR})
+target_compile_features(lib_pocketfft INTERFACE cxx_std_17)
+
 # ============================================================================
 # Sub-libraries
 # ============================================================================

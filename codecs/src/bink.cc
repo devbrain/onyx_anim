@@ -8,10 +8,12 @@
 #include <string>
 #include <vector>
 
+#include <bink/audio.hh>
 #include <bink/decoders.hh>
 #include <bink/header.hh>
 
 #include <musac/sdk/io_stream.hh>
+#include <musac/audio_source.hh>
 
 #include "bink.hh"
 #include "codec_common.hh"
@@ -23,6 +25,8 @@ namespace onyx_anim {
         };
 
         using detail::read_full_file;
+        using detail::pcm_audio_decoder;
+        using detail::pcm_buffer;
 
         // ITU-R BT.601 limited-range YUV → full-range RGB888 with the
         // standard 8-bit fixed-point matrix. NB this differs from
@@ -123,6 +127,24 @@ namespace onyx_anim {
 
                     bink::frame_state_init(state_, header_.width, header_.height);
 
+                    // ----- Audio: pre-decode track 0 (only) ------------
+                    // Bink files in our corpus typically have at most 1
+                    // audio track (some have 0). We pre-decode that track
+                    // into a single int8 PCM buffer at open() time and
+                    // expose it via the standard pcm_audio_decoder shell.
+                    // Tracks ≥ 1 are silently dropped.
+                    audio_pcm_int8_.reset();
+                    audio_rate_ = 0;
+                    audio_channels_ = 0;
+                    if (!header_.audio.empty()) {
+                        if (auto r = pre_decode_audio_track0(); !r) {
+                            // Audio failures are non-fatal — keep the
+                            // video-only path working even if a Bink
+                            // Audio packet is malformed.
+                            (void) r;
+                        }
+                    }
+
                     // anim_info.
                     info_.width       = header_.width;
                     info_.height      = header_.height;
@@ -132,7 +154,7 @@ namespace onyx_anim {
                         bink::frame_period_us(header_.fps_num, header_.fps_den);
                     info_.frame_period = std::chrono::microseconds(period_us);
                     info_.duration = info_.frame_period * info_.frame_count;
-                    info_.audio_track_count = 0u; // audio support deferred
+                    info_.audio_track_count = audio_pcm_int8_ ? 1u : 0u;
 
                     cursor_ = 0;
                     return {};
@@ -260,11 +282,108 @@ namespace onyx_anim {
                     return seek_to_frame(static_cast <unsigned int>(f));
                 }
 
+                [[nodiscard]] unsigned int audio_track_count() const noexcept override {
+                    return audio_pcm_int8_ ? 1u : 0u;
+                }
+
+                [[nodiscard]] std::unique_ptr<musac::audio_source>
+                take_audio_track(unsigned int index) override {
+                    if (!audio_pcm_int8_ || index != 0u || audio_taken_) return nullptr;
+                    audio_taken_ = true;
+                    auto io = musac::io_from_memory(audio_pcm_int8_->data(),
+                                                    audio_pcm_int8_->size());
+                    auto dec = std::make_unique<pcm_audio_decoder>(
+                        "Bink Audio (decoded → 8-bit signed PCM)",
+                        audio_rate_, audio_channels_, audio_pcm_int8_);
+                    return std::make_unique<musac::audio_source>(
+                        std::move(dec), std::move(io));
+                }
+
             private:
+                // Pre-decode track 0 by walking every frame, slicing out
+                // the first audio chunk, and feeding it to the Bink Audio
+                // decoder. Resulting float samples are clamped to int8.
+                // Quality loss is real (8-bit ≈ 48 dB SNR vs Bink's 16-bit
+                // native), but matches what pcm_audio_decoder accepts.
+                [[nodiscard]] result pre_decode_audio_track0() {
+                    const auto& track = header_.audio[0];
+                    audio_rate_     = static_cast <musac::sample_rate_t>(track.sample_rate);
+                    audio_channels_ = static_cast <musac::channels_t>(track.stereo ? 2u : 1u);
+
+                    bink::audio_decoder ad{};
+                    if (auto r = bink::audio_init(
+                            ad,
+                            static_cast <int>(track.sample_rate),
+                            track.stereo ? 2 : 1,
+                            track.use_dct,
+                            header_.version == 'b'); !r) {
+                        return make_unexpected<error_type>(r.error());
+                    }
+
+                    std::vector <float> samples_f;
+                    samples_f.reserve(64 * 1024);
+                    for (const auto& fe : header_.frames) {
+                        if (fe.offset + fe.size > file_bytes_.size()) {
+                            return make_unexpected<error_type>(
+                                "bink: frame range past end of file");
+                        }
+                        auto fb = std::span <const std::uint8_t>(
+                            file_bytes_.data() + fe.offset, fe.size);
+
+                        // Take the first audio chunk for track 0; skip
+                        // any subsequent track chunks. Each chunk:
+                        // u32 size + size bytes of payload.
+                        for (std::size_t i = 0; i < header_.audio.size(); ++i) {
+                            if (fb.size() < 4u) {
+                                return make_unexpected<error_type>(
+                                    "bink: audio chunk size truncated");
+                            }
+                            const std::uint32_t chunk_sz =
+                                static_cast <std::uint32_t>(fb[0]) |
+                                (static_cast <std::uint32_t>(fb[1]) << 8u) |
+                                (static_cast <std::uint32_t>(fb[2]) << 16u) |
+                                (static_cast <std::uint32_t>(fb[3]) << 24u);
+                            if (chunk_sz + 4u > fb.size()) {
+                                return make_unexpected<error_type>(
+                                    "bink: audio chunk over-runs frame");
+                            }
+                            const auto payload = fb.subspan(4u, chunk_sz);
+                            if (i == 0u && chunk_sz > 0u) {
+                                if (auto r = bink::audio_decode_packet(
+                                        ad, payload, samples_f); !r) {
+                                    return make_unexpected<error_type>(r.error());
+                                }
+                            }
+                            fb = fb.subspan(4u + chunk_sz);
+                        }
+                    }
+
+                    if (samples_f.empty()) {
+                        audio_rate_ = 0;
+                        audio_channels_ = 0;
+                        return {};
+                    }
+                    auto bytes = std::make_shared<std::vector <std::int8_t>>();
+                    bytes->reserve(samples_f.size());
+                    for (float f : samples_f) {
+                        // Clamp [-1, 1] then scale to int8.
+                        float v = f;
+                        if (v >  1.0f) v =  1.0f;
+                        if (v < -1.0f) v = -1.0f;
+                        bytes->push_back(static_cast <std::int8_t>(v * 127.0f));
+                    }
+                    audio_pcm_int8_ = std::move(bytes);
+                    return {};
+                }
+
                 std::vector <std::uint8_t> file_bytes_;
                 bink::file_header          header_{};
                 bink::frame_state          state_{};
                 std::vector <std::uint8_t> rgb_buffer_;
+                pcm_buffer                 audio_pcm_int8_;
+                musac::sample_rate_t       audio_rate_ = 0;
+                musac::channels_t          audio_channels_ = 0;
+                bool                       audio_taken_ = false;
 
                 anim_info                  info_{};
                 std::size_t                cursor_ = 0;
