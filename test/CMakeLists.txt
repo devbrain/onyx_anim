@@ -14,6 +14,7 @@ add_executable(onyx_anim_tests
         test_convert.cc
         test_frame_clock.cc
         test_player.cc
+        test_probe.cc
         flc/test_header.cc
         flc/test_chunks.cc
         flc/test_decoders.cc
