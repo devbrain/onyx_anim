@@ -11,6 +11,7 @@
 #include <imgui_impl_sdlrenderer3.h>
 
 #include <onyx_anim/codecs/register_codecs.hh>
+#include <onyx_anim/player/cpu_surface.hh>
 #include <onyx_anim/player/player.hh>
 #include <onyx_anim/sdk/codec_registry.hh>
 
@@ -28,7 +29,6 @@
 #include <chrono>
 #include <cstdint>
 #include <cstdio>
-#include <cstring>
 #include <memory>
 #include <optional>
 #include <span>
@@ -36,47 +36,9 @@
 #include <vector>
 
 namespace {
-    // RGBA-only surface backed by a vector of bytes. The player asks us
-    // for rgba8888; we hand it this and then upload directly into the
-    // SDL streaming texture — no second copy.
-    class rgba_surface final : public onyx_image::surface {
-        public:
-            bool set_size(int w, int h,
-                          onyx_image::pixel_format) override {
-                width_ = w;
-                height_ = h;
-                pixels_.assign(static_cast<std::size_t>(w) * h * 4u, 0);
-                return true;
-            }
-
-            void write_pixels(int x, int y, int count,
-                              const std::uint8_t* src) override {
-                if (y < 0 || y >= height_ || x < 0 || count <= 0) return;
-                const std::size_t row_off =
-                    static_cast<std::size_t>(y) * width_ * 4u + x;
-                if (row_off + static_cast<std::size_t>(count) > pixels_.size()) return;
-                std::memcpy(pixels_.data() + row_off, src,
-                            static_cast<std::size_t>(count));
-            }
-
-            void write_pixel(int, int, std::uint8_t) override {
-                // The player guarantees rgba8888, so the indexed-pixel
-                // path is never taken — no-op.
-            }
-
-            int width() const noexcept { return width_; }
-            int height() const noexcept { return height_; }
-            const std::uint8_t* data() const noexcept { return pixels_.data(); }
-
-        private:
-            int width_ = 0;
-            int height_ = 0;
-            std::vector<std::uint8_t> pixels_;
-    };
-
     struct app_state {
         std::unique_ptr<onyx_anim::player>  player;
-        rgba_surface                        frame;
+        onyx_anim::cpu_surface              frame;
         SDL_Texture*                        texture = nullptr;
         int                                 tex_w = 0;
         int                                 tex_h = 0;
@@ -111,7 +73,8 @@ namespace {
         const int h = a.frame.height();
         if (w <= 0 || h <= 0) return;
         if (!ensure_texture(a, r, w, h)) return;
-        SDL_UpdateTexture(a.texture, nullptr, a.frame.data(), w * 4);
+        SDL_UpdateTexture(a.texture, nullptr, a.frame.data(),
+                          static_cast<int>(a.frame.pitch()));
     }
 
     bool open_path(app_state& a, SDL_Renderer* r,
