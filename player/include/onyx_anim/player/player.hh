@@ -14,6 +14,7 @@
 #include <chrono>
 #include <functional>
 #include <memory>
+#include <span>
 
 namespace onyx_anim {
     /**
@@ -121,6 +122,14 @@ namespace onyx_anim {
             /// Tier 3). Useful for engines wanting to add fades / route
             /// effects beyond what the player exposes directly.
             [[nodiscard]] virtual musac::audio_stream* audio_stream() noexcept = 0;
+
+            /// Per-frame event-driven audio triggers (e.g. Amiga ANIM+SLA
+            /// SCTL chunks). Engines hand each event's `sound_bytes` to
+            /// `musac::io_from_memory` + `audio_source` to spawn a one-
+            /// shot stream. The returned span is invalidated by the next
+            /// `tick` / `advance_to_time` / `seek_to_time`.
+            [[nodiscard]] virtual std::span<const audio_event>
+                pending_audio_events() const noexcept = 0;
 
             // ---- callbacks ----
             virtual void on_end_of_stream(std::function<void()>) = 0;

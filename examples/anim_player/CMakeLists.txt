@@ -49,6 +49,7 @@ add_executable(anim_player anim_player.cc)
 target_link_libraries(anim_player PRIVATE
     neutrino::onyx_anim_sdk
     neutrino::onyx_anim_codecs
+    neutrino::onyx_anim_player
     neutrino::onyx_image
     anim_player_imgui
     ${_SDL3_TARGET}

@@ -1,8 +1,6 @@
-// anim_player — minimal SDL3 + Dear ImGui front-end for onyx_anim.
-//
-// Decodes one animation file to memory_surface frames, converts each to
-// RGBA32, and displays through SDL_Renderer with an ImGui control panel
-// (play/pause, frame slider, loop toggle, info, drag-and-drop reload).
+// anim_player — minimal SDL3 + Dear ImGui front-end for onyx_anim,
+// built on top of `onyx_anim::player` to show how slim an engine
+// integration becomes.
 
 #define SDL_MAIN_HANDLED
 #include <SDL3/SDL.h>
@@ -12,21 +10,22 @@
 #include <imgui_impl_sdl3.h>
 #include <imgui_impl_sdlrenderer3.h>
 
-#include <onyx_anim/sdk/codec_registry.hh>
-#include <onyx_anim/sdk/decoder.hh>
 #include <onyx_anim/codecs/register_codecs.hh>
+#include <onyx_anim/player/player.hh>
+#include <onyx_anim/sdk/codec_registry.hh>
+
 #include <onyx_image/surface.hpp>
 
 #include <musac/audio_device.hh>
 #include <musac/audio_source.hh>
 #include <musac/audio_system.hh>
-#include <musac/stream.hh>
 #include <musac/codecs/register_codecs.hh>
-#include <musac/sdk/decoder.hh>
 #include <musac/sdk/decoders_registry.hh>
 #include <musac/sdk/io_stream.hh>
+#include <musac/stream.hh>
 #include <musac_backends/sdl3/sdl3_backend.hh>
 
+#include <algorithm>
 #include <chrono>
 #include <cstdint>
 #include <cstdio>
@@ -38,269 +37,149 @@
 #include <vector>
 
 namespace {
+    // RGBA-only surface backed by a vector of bytes. The player asks us
+    // for rgba8888; we hand it this and then upload directly into the
+    // SDL streaming texture — no second copy.
+    class rgba_surface final : public onyx_image::surface {
+        public:
+            bool set_size(int w, int h,
+                          onyx_image::pixel_format) override {
+                width_ = w;
+                height_ = h;
+                pixels_.assign(static_cast<std::size_t>(w) * h * 4u, 0);
+                return true;
+            }
 
-struct anim_state {
-    std::unique_ptr<musac::io_stream>           stream;
-    std::unique_ptr<onyx_anim::anim_decoder>    decoder;
-    onyx_image::memory_surface                  surf;
-    std::vector<std::uint8_t>                   rgba; // converted current frame
-    SDL_Texture*                                texture = nullptr;
-    int                                         tex_w = 0;
-    int                                         tex_h = 0;
-    unsigned int                                frame_index = 0;
-    bool                                        playing = true;
-    bool                                        loop = true;
-    double                                      accumulator_us = 0.0;
-    std::string                                 source_path;
-    std::string                                 status; // last error or info text
+            void write_pixels(int x, int y, int count,
+                              const std::uint8_t* src) override {
+                if (y < 0 || y >= height_ || x < 0 || count <= 0) return;
+                const std::size_t row_off =
+                    static_cast<std::size_t>(y) * width_ * 4u + x;
+                if (row_off + static_cast<std::size_t>(count) > pixels_.size()) return;
+                std::memcpy(pixels_.data() + row_off, src,
+                            static_cast<std::size_t>(count));
+            }
 
-    // Audio: optional musac stream tied to the demuxer's first audio track.
-    // Lifetime is bounded by anim_state — destroying the stream stops audio.
-    std::optional<musac::audio_stream>          audio_stream;
+            void write_pixel(int, int, std::uint8_t) override {
+                // The player guarantees rgba8888, so the indexed-pixel
+                // path is never taken — no-op.
+            }
 
-    // Per-frame event-driven audio (ANIM+SLA): one short-lived stream per
-    // SCTL trigger. Streams that have finished are pruned each tick. Capped
-    // to keep runaway repeat-loops from exhausting the audio device.
-    std::vector<musac::audio_stream>            event_streams;
-    static constexpr std::size_t                kMaxEventStreams = 16;
-};
+            int width() const noexcept { return width_; }
+            int height() const noexcept { return height_; }
+            const std::uint8_t* data() const noexcept { return pixels_.data(); }
 
-void destroy_texture(anim_state& a) {
-    if (a.texture) {
-        SDL_DestroyTexture(a.texture);
-        a.texture = nullptr;
+        private:
+            int width_ = 0;
+            int height_ = 0;
+            std::vector<std::uint8_t> pixels_;
+    };
+
+    struct app_state {
+        std::unique_ptr<onyx_anim::player>  player;
+        rgba_surface                        frame;
+        SDL_Texture*                        texture = nullptr;
+        int                                 tex_w = 0;
+        int                                 tex_h = 0;
+        bool                                loop = true;
+        std::string                         source_path;
+        std::string                         status;
+
+        // Event-driven one-shot streams (e.g. ANIM+SLA SCTL triggers).
+        // Pruned each tick when their underlying audio_stream finishes.
+        std::vector<musac::audio_stream>    event_streams;
+        static constexpr std::size_t        kMaxEventStreams = 16;
+    };
+
+    void destroy_texture(app_state& a) {
+        if (a.texture) {
+            SDL_DestroyTexture(a.texture);
+            a.texture = nullptr;
+        }
     }
-}
 
-bool ensure_texture(anim_state& a, SDL_Renderer* r, int w, int h) {
-    if (a.texture && a.tex_w == w && a.tex_h == h) return true;
-    destroy_texture(a);
-    a.texture = SDL_CreateTexture(r,
-                                  SDL_PIXELFORMAT_RGBA32,
-                                  SDL_TEXTUREACCESS_STREAMING,
-                                  w, h);
-    if (!a.texture) return false;
-    SDL_SetTextureScaleMode(a.texture, SDL_SCALEMODE_NEAREST);
-    a.tex_w = w;
-    a.tex_h = h;
-    return true;
-}
+    bool ensure_texture(app_state& a, SDL_Renderer* r, int w, int h) {
+        if (a.texture && a.tex_w == w && a.tex_h == h) return true;
+        destroy_texture(a);
+        a.texture = SDL_CreateTexture(r,
+                                      SDL_PIXELFORMAT_RGBA32,
+                                      SDL_TEXTUREACCESS_STREAMING,
+                                      w, h);
+        if (!a.texture) return false;
+        SDL_SetTextureScaleMode(a.texture, SDL_SCALEMODE_NEAREST);
+        a.tex_w = w;
+        a.tex_h = h;
+        return true;
+    }
 
-// Convert the decoded frame in `a.surf` to RGBA32 in `a.rgba`.
-void surface_to_rgba(anim_state& a) {
-    const int w = a.surf.width();
-    const int h = a.surf.height();
-    a.rgba.assign(static_cast<std::size_t>(w) * h * 4u, 0);
-    const auto px = a.surf.pixels();
-    if (a.surf.format() == onyx_image::pixel_format::rgb888) {
-        for (int y = 0; y < h; ++y) {
-            const std::uint8_t* src = px.data() + y * w * 3;
-            std::uint8_t*       dst = a.rgba.data() + y * w * 4;
-            for (int x = 0; x < w; ++x) {
-                dst[x * 4 + 0] = src[x * 3 + 0];
-                dst[x * 4 + 1] = src[x * 3 + 1];
-                dst[x * 4 + 2] = src[x * 3 + 2];
-                dst[x * 4 + 3] = 255;
+    void upload_frame(app_state& a, SDL_Renderer* r) {
+        const int w = a.frame.width();
+        const int h = a.frame.height();
+        if (w <= 0 || h <= 0) return;
+        if (!ensure_texture(a, r, w, h)) return;
+        SDL_UpdateTexture(a.texture, nullptr, a.frame.data(), w * 4);
+    }
+
+    void fire_pending_events(app_state& a, musac::audio_device* device) {
+        if (!device || !a.player) return;
+        std::erase_if(a.event_streams,
+                      [](const musac::audio_stream& s) { return !s.is_playing(); });
+
+        for (const auto& ev : a.player->pending_audio_events()) {
+            if (!ev.sound_bytes || ev.sound_bytes->empty()) continue;
+            if (a.event_streams.size() >= app_state::kMaxEventStreams) break;
+            try {
+                auto io = musac::io_from_memory(ev.sound_bytes->data(),
+                                                ev.sound_bytes->size());
+                musac::audio_source src{std::move(io)};
+                auto stream = device->create_stream(std::move(src));
+                const int iterations = ev.repeats == 0u ? 0 : ev.repeats;
+                stream.play(iterations, std::chrono::microseconds{});
+                a.event_streams.push_back(std::move(stream));
+            } catch (const std::exception&) {
+                // Best-effort.
             }
         }
-        return;
     }
-    // indexed8 + palette
-    const auto pal = a.surf.palette();
-    const std::size_t pal_entries = pal.size() / 3u;
-    for (int y = 0; y < h; ++y) {
-        const std::uint8_t* src = px.data() + y * w;
-        std::uint8_t*       dst = a.rgba.data() + y * w * 4;
-        for (int x = 0; x < w; ++x) {
-            std::size_t idx = src[x];
-            if (idx >= pal_entries) idx = 0;
-            dst[x * 4 + 0] = pal[idx * 3 + 0];
-            dst[x * 4 + 1] = pal[idx * 3 + 1];
-            dst[x * 4 + 2] = pal[idx * 3 + 2];
-            dst[x * 4 + 3] = 255;
-        }
-    }
-}
 
-void upload_current_frame(anim_state& a, SDL_Renderer* r) {
-    if (a.surf.width() <= 0 || a.surf.height() <= 0) return;
-    surface_to_rgba(a);
-    if (!ensure_texture(a, r, a.surf.width(), a.surf.height())) return;
-    SDL_UpdateTexture(a.texture, nullptr,
-                      a.rgba.data(),
-                      a.surf.width() * 4);
-}
+    bool open_path(app_state& a, SDL_Renderer* r,
+                   musac::audio_device* device, const char* path) {
+        // Drop the previous player BEFORE the audio stream it owns goes
+        // away — order matters because the audio thread reads through
+        // state owned by player_impl.
+        a.event_streams.clear();
+        a.player.reset();
 
-void fire_pending_audio_events(anim_state& a, musac::audio_device* device);
-
-void start_audio_track(anim_state& a, musac::audio_device* device) {
-    a.audio_stream.reset(); // stop/destroy any previous stream
-    if (!device || !a.decoder) return;
-    if (a.decoder->audio_track_count() == 0u) return;
-    auto src = a.decoder->take_audio_track(0u);
-    if (!src) return;
-    try {
-        a.audio_stream.emplace(device->create_stream(std::move(*src)));
-        a.audio_stream->play();
-    } catch (const std::exception& ex) {
-        a.status = std::string("audio init failed: ") + ex.what();
-        a.audio_stream.reset();
-    }
-}
-
-// Resync the audio playback position after a video seek. Frames are
-// uniformly spaced so audio_pts = idx * frame_period.
-void sync_audio_to_frame(anim_state& a, unsigned int idx) {
-    if (!a.audio_stream || !a.decoder) return;
-    const auto period = a.decoder->info().frame_period;
-    if (period.count() <= 0) return;
-    const auto pts = period * static_cast<std::int64_t>(idx);
-    a.audio_stream->seek_to_time(pts);
-}
-
-bool open_path(anim_state& a, SDL_Renderer* r,
-               musac::audio_device* device, const char* path) {
-    // Drop existing streams BEFORE the old decoder goes away — the audio
-    // threads read through state we'd be destroying. event_streams are
-    // independent of the decoder (they own their own io+decoder) but we
-    // tear them down anyway since they belong to the previous animation.
-    a.audio_stream.reset();
-    a.event_streams.clear();
-
-    a.stream = musac::io_from_file(path, "rb");
-    if (!a.stream) {
-        a.status = std::string("cannot open: ") + path;
-        return false;
-    }
-    auto& reg = onyx_anim::codec_registry::instance();
-    a.decoder = reg.create_decoder(a.stream.get());
-    if (!a.decoder) {
-        a.status = "no codec accepted this file";
-        return false;
-    }
-    if (auto rc = a.decoder->open(a.stream.get()); !rc) {
-        a.status = std::string("open failed: ") + rc.error();
-        return false;
-    }
-    a.source_path    = path;
-    a.frame_index    = 0;
-    a.accumulator_us = 0.0;
-    a.playing        = true;
-    auto fr = a.decoder->decode_frame(a.surf);
-    if (!fr) {
-        a.status = std::string("decode_frame failed: ") + fr.error();
-        return false;
-    }
-    upload_current_frame(a, r);
-    a.status = path;
-    start_audio_track(a, device);
-    fire_pending_audio_events(a, device);
-    return true;
-}
-
-// Spawn a short-lived musac stream for each event triggered by the
-// just-decoded frame (event-driven audio, e.g. ANIM+SLA SCTL chunks).
-// Drops finished streams to keep the active set bounded.
-void fire_pending_audio_events(anim_state& a, musac::audio_device* device) {
-    if (!device || !a.decoder) return;
-
-    // Prune streams that have finished playing.
-    std::erase_if(a.event_streams,
-                  [](const musac::audio_stream& s) { return !s.is_playing(); });
-
-    const auto events = a.decoder->pending_audio_events();
-    for (const auto& ev : events) {
-        if (!ev.sound_bytes || ev.sound_bytes->empty()) continue;
-        if (a.event_streams.size() >= anim_state::kMaxEventStreams) break;
-        try {
-            auto io = musac::io_from_memory(ev.sound_bytes->data(),
-                                            ev.sound_bytes->size());
-            // Format-agnostic: musac auto-detects via the global decoders
-            // registry installed at audio_system::init(). The player stays
-            // codec-neutral; new container types just need their decoder
-            // registered with musac.
-            musac::audio_source src{std::move(io)};
-            auto stream = device->create_stream(std::move(src));
-            // SCTL.repeats == 0 means loop forever; map to 0 for musac too.
-            const int iterations = ev.repeats == 0u ? 0 : ev.repeats;
-            stream.play(iterations, std::chrono::microseconds{});
-            a.event_streams.push_back(std::move(stream));
-        } catch (const std::exception&) {
-            // Best-effort: a malformed sample shouldn't kill playback.
-        }
-    }
-}
-
-bool advance_one(anim_state& a, SDL_Renderer* r,
-                 musac::audio_device* device) {
-    if (!a.decoder) return false;
-    if (a.decoder->eof()) {
-        if (!a.loop) {
-            a.playing = false;
-            // Audio stream will naturally finish when its buffer drains.
+        auto stream = musac::io_from_file(path, "rb");
+        if (!stream) {
+            a.status = std::string("cannot open: ") + path;
             return false;
         }
-        if (!a.decoder->rewind()) {
-            a.status = "rewind failed";
-            a.playing = false;
+
+        onyx_anim::player_options opts;
+        opts.loop = a.loop;
+        opts.audio_device = device;
+        opts.preferred_format = onyx_image::pixel_format::rgba8888;
+
+        auto pr = onyx_anim::player::open(std::move(stream), opts);
+        if (!pr) {
+            a.status = std::string("player::open: ") + pr.error();
             return false;
         }
-        a.frame_index = 0;
-        // Player owns audio alignment now: rewind audio cursor to start, then
-        // (re-)arm playback if the stream had stopped at end-of-buffer.
-        sync_audio_to_frame(a, 0);
-        if (a.audio_stream && !a.audio_stream->is_playing()) {
-            a.audio_stream->play();
+        a.player = std::move(*pr);
+        a.player->on_error([&a](const std::string& e) { a.status = e; });
+        a.player->play();
+
+        a.source_path = path;
+        a.status = path;
+
+        // Render the first frame immediately.
+        if (a.player->advance_to_time(std::chrono::microseconds{0}, a.frame)) {
+            upload_frame(a, r);
         }
+        fire_pending_events(a, device);
+        return true;
     }
-    auto fr = a.decoder->decode_frame(a.surf);
-    if (!fr) {
-        a.status = std::string("decode error: ") + fr.error();
-        a.playing = false;
-        return false;
-    }
-    a.frame_index = fr->index;
-    upload_current_frame(a, r);
-    fire_pending_audio_events(a, device);
-    return true;
-}
-
-void seek_to(anim_state& a, SDL_Renderer* r, unsigned int idx) {
-    if (!a.decoder) return;
-    if (!a.decoder->seek_to_frame(idx)) {
-        a.status = "seek failed";
-        return;
-    }
-    auto fr = a.decoder->decode_frame(a.surf);
-    if (!fr) { a.status = std::string("decode after seek: ") + fr.error(); return; }
-    a.frame_index = fr->index;
-    upload_current_frame(a, r);
-    a.accumulator_us = 0.0;
-    // The codec doesn't drive audio — the player owns alignment.
-    sync_audio_to_frame(a, idx);
-    if (a.audio_stream && !a.audio_stream->is_playing()) {
-        a.audio_stream->play();
-    }
-}
-
-void set_playing(anim_state& a, bool play) {
-    a.playing = play;
-    if (a.audio_stream) {
-        if (play) {
-            if (!a.audio_stream->is_playing()) a.audio_stream->play();
-            else                               a.audio_stream->resume();
-        } else {
-            a.audio_stream->pause();
-        }
-    }
-    // Event-driven streams are short-lived one-shots: pause stops them,
-    // resume just lets new triggers fire on subsequent decoded frames.
-    for (auto& s : a.event_streams) {
-        if (play) s.resume();
-        else      s.pause();
-    }
-}
-
 } // namespace
 
 int main(int argc, char* argv[]) {
@@ -331,10 +210,6 @@ int main(int argc, char* argv[]) {
 
     onyx_anim::register_all_codecs(onyx_anim::codec_registry::instance());
 
-    // Audio: optional. If musac fails (e.g. no audio device on a CI box),
-    // keep going with video only. We install a registry pre-populated with
-    // every musac codec so format-agnostic audio_source(io_stream) can
-    // auto-detect anything an anim_decoder hands us via audio events.
     std::shared_ptr<musac::audio_backend>      audio_backend{};
     std::shared_ptr<musac::decoders_registry>  audio_registry{};
     std::optional<musac::audio_device>         audio_device{};
@@ -354,16 +229,15 @@ int main(int argc, char* argv[]) {
     }
     musac::audio_device* device = audio_device ? &*audio_device : nullptr;
 
-    anim_state st;
+    app_state st;
     if (argc >= 2) {
         if (!open_path(st, renderer, device, argv[1])) {
             std::fprintf(stderr, "%s\n", st.status.c_str());
         }
     } else {
-        st.status = "drop a .flc/.seq/.anim file on the window to load";
+        st.status = "drop a .flc/.smk/.bik/... file on the window to load";
     }
 
-    auto last_tick = std::chrono::steady_clock::now();
     bool running = true;
     while (running) {
         SDL_Event e;
@@ -381,31 +255,26 @@ int main(int argc, char* argv[]) {
                     if (e.drop.data) open_path(st, renderer, device, e.drop.data);
                     break;
                 case SDL_EVENT_KEY_DOWN:
-                    if (e.key.key == SDLK_SPACE) set_playing(st, !st.playing);
-                    if (e.key.key == SDLK_R)     {
-                        if (st.decoder) {
-                            seek_to(st, renderer, 0);
-                            set_playing(st, true);
-                        }
+                    if (e.key.key == SDLK_SPACE && st.player) {
+                        if (st.player->is_playing()) st.player->pause();
+                        else                          st.player->play();
+                    }
+                    if (e.key.key == SDLK_R && st.player) {
+                        st.player->rewind();
+                        st.player->play();
                     }
                     break;
                 default: break;
             }
         }
 
-        const auto now      = std::chrono::steady_clock::now();
-        const auto delta_us = std::chrono::duration_cast<std::chrono::microseconds>(
-                                  now - last_tick).count();
-        last_tick = now;
-
-        if (st.playing && st.decoder) {
-            const auto period_us = st.decoder->info().frame_period.count();
-            if (period_us > 0) {
-                st.accumulator_us += static_cast<double>(delta_us);
-                while (st.playing && st.accumulator_us >= static_cast<double>(period_us)) {
-                    st.accumulator_us -= static_cast<double>(period_us);
-                    if (!advance_one(st, renderer, device)) break;
-                }
+        // Tick the player. Returns true when a fresh frame landed in
+        // st.frame; in that case we re-upload the texture and fire any
+        // event-driven audio that came with it.
+        if (st.player) {
+            if (st.player->tick(st.frame)) {
+                upload_frame(st, renderer);
+                fire_pending_events(st, device);
             }
         }
 
@@ -418,13 +287,10 @@ int main(int argc, char* argv[]) {
         ImGui::SetNextWindowSize(ImVec2(360, 220), ImGuiCond_FirstUseEver);
         ImGui::Begin("anim_player");
 
-        if (st.decoder) {
-            const auto& info = st.decoder->info();
+        if (st.player) {
+            const auto& info = st.player->info();
             ImGui::Text("File:   %s",
                         st.source_path.empty() ? "-" : st.source_path.c_str());
-            ImGui::Text("Codec:  %.*s",
-                        static_cast<int>(st.decoder->name().size()),
-                        st.decoder->name().data());
             ImGui::Text("Size:   %ux%u   Frames: %u",
                         info.width, info.height, info.frame_count);
             const double fps = info.frame_period.count() > 0
@@ -435,34 +301,44 @@ int main(int argc, char* argv[]) {
             if (info.audio_track_count > 0u) {
                 ImGui::Text("Audio:  %u Hz, %u ch%s",
                             info.audio_rate, info.audio_channels,
-                            st.audio_stream ? "" : " (no device)");
+                            st.player->audio_stream() ? "" : " (no device)");
             } else {
                 ImGui::TextDisabled("Audio:  none");
             }
 
             ImGui::Separator();
 
-            if (ImGui::Button(st.playing ? "Pause" : "Play")) {
-                set_playing(st, !st.playing);
+            const bool playing = st.player->is_playing();
+            if (ImGui::Button(playing ? "Pause" : "Play")) {
+                if (playing) st.player->pause();
+                else         st.player->play();
             }
             ImGui::SameLine();
             if (ImGui::Button("Restart")) {
-                seek_to(st, renderer, 0);
-                set_playing(st, true);
+                st.player->rewind();
+                st.player->play();
             }
             ImGui::SameLine();
             ImGui::Checkbox("Loop", &st.loop);
 
-            int current = static_cast<int>(st.frame_index);
+            // Frame slider derived from current_time / frame_period.
+            const auto period = info.frame_period;
+            int current = period.count() > 0
+                ? static_cast<int>(st.player->current_time().count() / period.count())
+                : 0;
             const int last = (info.frame_count > 0)
                 ? static_cast<int>(info.frame_count - 1) : 0;
             if (ImGui::SliderInt("Frame", &current, 0, last)) {
-                seek_to(st, renderer, static_cast<unsigned int>(current));
-                set_playing(st, false);
+                st.player->seek_to_time(period * static_cast<std::int64_t>(current));
+                st.player->pause();
+                if (st.player->advance_to_time(
+                        period * static_cast<std::int64_t>(current), st.frame)) {
+                    upload_frame(st, renderer);
+                }
             }
         } else {
             ImGui::TextWrapped("No file loaded.");
-            ImGui::TextWrapped("Drop a .flc / .seq / .anim file onto the window,");
+            ImGui::TextWrapped("Drop a video file onto the window,");
             ImGui::TextWrapped("or pass it on the command line.");
         }
 
@@ -479,13 +355,13 @@ int main(int argc, char* argv[]) {
         if (st.texture) {
             int win_w = 0, win_h = 0;
             SDL_GetRenderOutputSize(renderer, &win_w, &win_h);
-            const float fw    = static_cast<float>(st.tex_w);
-            const float fh    = static_cast<float>(st.tex_h);
+            const float fw     = static_cast<float>(st.tex_w);
+            const float fh     = static_cast<float>(st.tex_h);
             const float fwin_w = static_cast<float>(win_w);
             const float fwin_h = static_cast<float>(win_h);
-            const float scale = std::min(fwin_w / fw, fwin_h / fh);
-            const float dw    = fw * scale;
-            const float dh    = fh * scale;
+            const float scale  = std::min(fwin_w / fw, fwin_h / fh);
+            const float dw     = fw * scale;
+            const float dh     = fh * scale;
             SDL_FRect dst{
                 (fwin_w - dw) * 0.5f,
                 (fwin_h - dh) * 0.5f,
@@ -499,11 +375,10 @@ int main(int argc, char* argv[]) {
         SDL_RenderPresent(renderer);
     }
 
-    // Destroy all audio streams + decoder before tearing down the audio
-    // device (musac stream lifetime must end before its parent device).
+    // Tear down in reverse construction order — player owns the audio
+    // stream pulling from the audio_device, so it must die first.
     st.event_streams.clear();
-    st.audio_stream.reset();
-    st.decoder.reset();
+    st.player.reset();
     audio_device.reset();
     musac::audio_system::done();
 

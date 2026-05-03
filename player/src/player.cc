@@ -184,6 +184,12 @@ namespace onyx_anim {
                     return audio_stream_observer_;
                 }
 
+                std::span<const audio_event>
+                pending_audio_events() const noexcept override {
+                    return decoder_ ? decoder_->pending_audio_events()
+                                    : std::span<const audio_event>{};
+                }
+
                 // ---- callbacks ----
                 void on_end_of_stream(std::function<void()> fn) override {
                     eos_callback_ = std::move(fn);
