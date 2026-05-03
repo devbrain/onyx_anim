@@ -41,15 +41,6 @@ namespace anim {
         return si;
     }
 
-    namespace {
-        std::uint32_t r32be(const std::uint8_t* p) noexcept {
-            return (static_cast <std::uint32_t>(p[0]) << 24u) |
-                   (static_cast <std::uint32_t>(p[1]) << 16u) |
-                   (static_cast <std::uint32_t>(p[2]) << 8u) |
-                   static_cast <std::uint32_t>(p[3]);
-        }
-    } // namespace
-
     result
     apply_dlta_op5(std::span <const std::uint8_t> dlta,
                    std::uint8_t* fb,
@@ -57,31 +48,35 @@ namespace anim {
                    unsigned int planes,
                    unsigned int height) {
         // 16 longword plane offsets at the head of the chunk; offset == 0
-        // means "this plane is unchanged in this delta frame".
+        // means "this plane is unchanged in this delta frame". The offsets
+        // helper / `read_plane_offset` are defined further down in the
+        // anonymous namespace; forward declarations live with byte_reader.
         constexpr std::size_t kOffsetTableBytes = 64;
         if (dlta.size() < kOffsetTableBytes) {
             return make_unexpected("anim: DLTA op5 too small for plane-offset table");
         }
-        const std::size_t cap = dlta.size();
-        const auto* base = dlta.data();
         // Per-row stride in the row-interleaved framebuffer: bpr bytes for
         // each plane, all planes contiguous within the row.
         const std::size_t rowpitch = bytes_per_row * planes;
 
+        bytes::byte_reader_be ptrs{dlta};
         for (unsigned int p = 0; p < planes && p < 16; ++p) {
-            const std::uint32_t off = r32be(base + p * 4u);
-            if (off == 0) continue;
-            if (off >= cap) {
+            const auto off_raw = ptrs.read_u32();
+            if (ptrs.failed()) {
+                return make_unexpected("anim: DLTA op5 plane offset table truncated");
+            }
+            if (off_raw == 0) continue;
+            if (off_raw >= dlta.size()) {
                 return make_unexpected("anim: DLTA op5 plane offset past end");
             }
 
-            std::size_t si = off;
+            bytes::byte_reader_be gb{dlta.subspan(off_raw)};
 
             for (std::size_t col = 0; col < bytes_per_row; ++col) {
-                if (si >= cap) {
+                const auto op_count = gb.read_u8();
+                if (gb.failed()) {
                     return make_unexpected("anim: DLTA op5 truncated at column header");
                 }
-                const std::uint8_t op_count = base[si++];
 
                 // Starting address of (row 0, plane p, column col) within the
                 // row-interleaved framebuffer.
@@ -89,18 +84,18 @@ namespace anim {
                 unsigned int row = 0;
 
                 for (unsigned int i = 0; i < op_count; ++i) {
-                    if (si >= cap) {
+                    const auto op = gb.read_u8();
+                    if (gb.failed()) {
                         return make_unexpected("anim: DLTA op5 truncated at op");
                     }
-                    const std::uint8_t op = base[si++];
 
                     if (op == 0) {
                         // long SAME — overwrite next `count` rows with `value`
-                        if (si + 1 >= cap) {
+                        const auto count = gb.read_u8();
+                        const auto v     = gb.read_u8();
+                        if (gb.failed()) {
                             return make_unexpected("anim: DLTA op5 long-SAME truncated");
                         }
-                        const unsigned int count = base[si++];
-                        const std::uint8_t v = base[si++];
                         for (unsigned int r = 0; r < count; ++r) {
                             if (row >= height) break;
                             fb[addr] = v;
@@ -121,15 +116,15 @@ namespace anim {
                         // signaled by ANHD bits == 2. Matches ffmpeg's
                         // libavcodec/iff.c:decode_byte_vertical_delta.)
                         const unsigned int count = op & 0x7Fu;
-                        if (si + count > cap) {
+                        if (!gb.has(count)) {
                             return make_unexpected("anim: DLTA op5 UNIQUE data truncated");
                         }
                         for (unsigned int r = 0; r < count; ++r) {
                             if (row >= height) {
-                                si += (count - r);
+                                gb >> bytes::skip(count - r);
                                 break;
                             }
-                            fb[addr] = base[si++];
+                            fb[addr] = gb.read_u8();
                             addr += rowpitch;
                             ++row;
                         }
@@ -191,37 +186,28 @@ namespace anim {
         if (dlta.size() < static_cast <std::size_t>(planes) * 4u) {
             return make_unexpected("anim: DLTA op3 too small for plane-offset table");
         }
-        const std::size_t cap = dlta.size();
-        const auto* base = dlta.data();
         const std::size_t planepitch = ((static_cast <std::size_t>(width) + 15u) / 16u) * 2u;
         const std::size_t pitch = planepitch * planes;
 
-        auto rb16 = [&](std::size_t& si) -> int {
-            if (si + 1 >= cap) return -1;
-            const auto v = static_cast <std::uint16_t>(
-                (static_cast <unsigned>(base[si]) << 8u) | base[si + 1]);
-            si += 2;
-            return static_cast <int>(v);
-        };
-
+        bytes::byte_reader_be ptrs{dlta};
         for (unsigned int k = 0; k < planes; ++k) {
-            const std::uint32_t off =
-                (static_cast <std::uint32_t>(base[k * 4 + 0]) << 24u) |
-                (static_cast <std::uint32_t>(base[k * 4 + 1]) << 16u) |
-                (static_cast <std::uint32_t>(base[k * 4 + 2]) << 8u) |
-                static_cast <std::uint32_t>(base[k * 4 + 3]);
-            if (off == 0) continue;
-            if (off >= cap) continue;
-            std::size_t si = off;
+            const auto off_raw = ptrs.read_u32();
+            if (ptrs.failed()) {
+                return make_unexpected("anim: DLTA op3 plane offset table truncated");
+            }
+            if (off_raw == 0) continue;
+            if (off_raw >= dlta.size()) continue;
+
+            bytes::byte_reader_be gb{dlta.subspan(off_raw)};
             std::size_t pos = 0;
             while (true) {
-                const int raw = rb16(si);
-                if (raw < 0) return make_unexpected("anim: DLTA op3 truncated at offset");
+                const auto raw = gb.read_u16();
+                if (gb.failed()) return make_unexpected("anim: DLTA op3 truncated at offset");
                 if (raw == 0xFFFF) break;
                 const auto off16 = static_cast <std::int16_t>(raw);
                 if (off16 >= 0) {
-                    const int data = rb16(si);
-                    if (data < 0) return make_unexpected("anim: DLTA op3 truncated at single-data");
+                    const auto data = gb.read_u16();
+                    if (gb.failed()) return make_unexpected("anim: DLTA op3 truncated at single-data");
                     pos += static_cast <std::size_t>(off16) * 2u;
                     const std::size_t real = (pos / planepitch) * pitch +
                                              (pos % planepitch) +
@@ -231,12 +217,12 @@ namespace anim {
                         fb[real + 1] = static_cast <std::uint8_t>(data & 0xFF);
                     }
                 } else {
-                    const int count = rb16(si);
-                    if (count < 0) return make_unexpected("anim: DLTA op3 truncated at run-count");
+                    const auto count = gb.read_u16();
+                    if (gb.failed()) return make_unexpected("anim: DLTA op3 truncated at run-count");
                     pos += static_cast <std::size_t>(2 * (-(off16 + 2)));
-                    for (int i = 0; i < count; ++i) {
-                        const int data = rb16(si);
-                        if (data < 0) return make_unexpected("anim: DLTA op3 truncated at run data");
+                    for (unsigned i = 0; i < count; ++i) {
+                        const auto data = gb.read_u16();
+                        if (gb.failed()) return make_unexpected("anim: DLTA op3 truncated at run data");
                         pos += 2u;
                         const std::size_t real = (pos / planepitch) * pitch +
                                                  (pos % planepitch) +
