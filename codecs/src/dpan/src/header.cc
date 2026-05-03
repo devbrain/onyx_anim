@@ -65,7 +65,14 @@ namespace dpan {
         if (h.pixel_type != 0u) {
             return make_unexpected("dpan: pixel_type != 0 (only 256-colour supported)");
         }
-        if (h.compression_type != 1u) {
+        // compression_type 1 = RunSkipDump (the only documented value).
+        // Some real-world files (HORSE.ANM in our corpus) advertise 0 but
+        // their records still start with the RunSkipDump 0x42 IDnum and
+        // decode correctly — the header byte is just a non-standard
+        // authoring choice. ffmpeg rejects 0 outright; we accept it and
+        // let the per-record IDnum check in decompress_record catch any
+        // genuinely-different encoding.
+        if (h.compression_type != 0u && h.compression_type != 1u) {
             return make_unexpected("dpan: only RunSkipDump compression supported");
         }
         if (h.bitmap_type != 1u) {

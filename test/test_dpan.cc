@@ -69,7 +69,11 @@ TEST_CASE("dpan: sniff + open + decode-first-frame on clean samples") {
     }
 }
 
-TEST_CASE("dpan: HORSE.ANM with non-RunSkipDump compression is rejected") {
+TEST_CASE("dpan: HORSE.ANM with non-standard compression byte is accepted") {
+    // HORSE.ANM advertises compression_type = 0 instead of the documented
+    // value 1 — a non-standard authoring choice. Records still start with
+    // the RunSkipDump 0x42 IDnum and decode correctly. ffmpeg rejects it
+    // outright; we accept it.
     const auto path = sample("HORSE.ANM");
     if (!exists(path)) return;
 
@@ -78,8 +82,14 @@ TEST_CASE("dpan: HORSE.ANM with non-RunSkipDump compression is rejected") {
     auto& reg = onyx_anim::codec_registry::instance();
     auto dec = reg.create_decoder(stream.get());
     REQUIRE(dec);
-    auto rc = dec->open(stream.get());
-    CHECK_FALSE(rc);
+    REQUIRE(dec->open(stream.get()));
+    CHECK(dec->info().frame_count == 32u);
+
+    onyx_image::memory_surface surf;
+    auto fr = dec->decode_frame(surf);
+    REQUIRE(fr);
+    CHECK(static_cast<unsigned int>(surf.width())  == 320u);
+    CHECK(static_cast<unsigned int>(surf.height()) == 200u);
 }
 
 TEST_CASE("dpan: out-of-record-order pages are reassembled correctly") {
