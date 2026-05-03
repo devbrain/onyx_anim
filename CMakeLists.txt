@@ -75,6 +75,7 @@ target_compile_features(lib_pocketfft INTERFACE cxx_std_17)
 
 add_subdirectory(sdk)
 add_subdirectory(codecs)
+add_subdirectory(player)
 
 # ============================================================================
 # Compiler Warnings
@@ -82,8 +83,10 @@ add_subdirectory(codecs)
 
 neutrino_target_warnings(onyx_anim_sdk)
 neutrino_target_warnings(onyx_anim_codecs)
+neutrino_target_warnings(onyx_anim_player)
 neutrino_target_sanitizers(onyx_anim_sdk)
 neutrino_target_sanitizers(onyx_anim_codecs)
+neutrino_target_sanitizers(onyx_anim_player)
 
 # ============================================================================
 # Tests

@@ -13,6 +13,7 @@ add_executable(onyx_anim_tests
         test_bink.cc
         test_convert.cc
         test_frame_clock.cc
+        test_player.cc
         flc/test_header.cc
         flc/test_chunks.cc
         flc/test_decoders.cc
@@ -21,6 +22,7 @@ add_executable(onyx_anim_tests
 target_link_libraries(onyx_anim_tests PRIVATE
         neutrino::onyx_anim_sdk
         neutrino::onyx_anim_codecs
+        neutrino::onyx_anim_player
         lib_flc
         lib_bytes
         doctest::doctest
