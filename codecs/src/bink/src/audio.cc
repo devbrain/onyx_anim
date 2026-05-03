@@ -64,13 +64,27 @@ namespace bink {
             std::memcpy(coeffs, out.data(), N * sizeof(float));
         }
 
-        // ffmpeg's AV_TX_FLOAT_DCT (inverse) is a DCT-III variant whose
-        // output is the full bink frame_len — the size parameter
-        // ffmpeg passes (1<<(frame_len_bits-1) = frame_len/2) refers
-        // to half of the output, with the framework internally
-        // expanding to 2N samples. Empirically pocketfft's DCT type 3
-        // at `size = frame_len` reproduces ffmpeg's first samples
-        // exactly. Scale per ffmpeg: 1/(2*size) = 1/N.
+        // ffmpeg's AV_TX_FLOAT_DCT (inverse) is named "DCT-III" but is
+        // implemented internally as an RDFT of length 2N with a
+        // bink-specific cosine pre/post-processing wrapper (see
+        // libavutil/tx_template.c::ff_tx_dct_init / ff_tx_dctIII —
+        // `inv` doubles `len` and dispatches to a TX_TYPE(MDCT)
+        // subtransform).
+        //
+        // Empirically, calling pocketfft's plain DCT-III at
+        // `size = frame_len` reproduces the same output bit-exactly
+        // for every Bink file in our corpus when compared at the
+        // file's native sample rate (verified: example.bik at 44.1 kHz,
+        // logo_lucas.bik at 44.0 kHz, ATI-9700 at 48 kHz, all
+        // diff_rms < 1e-7 vs ffmpeg's f32le decode). The earlier
+        // "drift" we saw on logo_lucas was a spurious artifact of
+        // forcing ffmpeg to resample 44.0 → 44.1 kHz for the
+        // comparison; ffmpeg's swresample and musac's resampler
+        // disagree slightly, which manifests as ~0.27 RMS diff in
+        // the resampled-then-compared signal even though the
+        // underlying codec output is identical.
+        //
+        // Scale per ffmpeg: 1/(2*size) = 1/N.
         void inverse_dct(float* coeffs, std::size_t N) {
             using namespace pocketfft;
             const shape_t shape{N};
