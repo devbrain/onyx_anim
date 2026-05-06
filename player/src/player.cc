@@ -52,6 +52,7 @@ namespace onyx_anim {
                 void play() override {
                     playing_ = true;
                     eof_ = false;
+                    have_last_wall_time_ = false;
                     clock_.resume();
                     if (audio_stream_observer_) {
                         // 1 iteration if !loop, ~unsigned-max for loop.
@@ -61,6 +62,7 @@ namespace onyx_anim {
 
                 void pause() override {
                     playing_ = false;
+                    have_last_wall_time_ = false;
                     clock_.pause();
                     if (audio_stream_observer_) {
                         audio_stream_observer_->pause();
@@ -75,12 +77,20 @@ namespace onyx_anim {
                         audio_stream_observer_->seek_to_time(t);
                     }
                     clock_.seek_to(t);
+                    have_last_wall_time_ = false;
                     last_decoded_pts_ = std::chrono::microseconds{-1};
                     eof_ = false;
                 }
 
                 // ---- per-frame ----
                 bool tick(onyx_image::surface& out) override {
+                    const auto wall_now = std::chrono::steady_clock::now();
+                    if (have_last_wall_time_) {
+                        clock_.tick(std::chrono::duration_cast<std::chrono::microseconds>(
+                            wall_now - last_wall_time_));
+                    }
+                    last_wall_time_ = wall_now;
+                    have_last_wall_time_ = true;
                     return advance_to_time(clock_.now(), out);
                 }
 
@@ -213,6 +223,10 @@ namespace onyx_anim {
                     internal_surface_ = onyx_image::memory_surface{};
                 }
 
+                void set_input_stream(std::unique_ptr<musac::io_stream> s) {
+                    input_stream_ = std::move(s);
+                }
+
                 void set_loop(bool b) { loop_ = b; }
                 void set_preferred_format(pixel_format f) { preferred_format_ = f; }
 
@@ -285,9 +299,12 @@ namespace onyx_anim {
                         });
                 }
 
+                std::unique_ptr<musac::io_stream> input_stream_;
                 std::unique_ptr<anim_decoder>     decoder_;
                 onyx_image::memory_surface        internal_surface_;
                 frame_clock                       clock_;
+                std::chrono::steady_clock::time_point last_wall_time_{};
+                bool                              have_last_wall_time_ = false;
 
                 std::unique_ptr<musac::audio_stream> owned_audio_stream_;
                 musac::audio_stream*              audio_stream_observer_ = nullptr;
@@ -371,6 +388,7 @@ namespace onyx_anim {
         }
         // If no audio path was set up, the clock stays in realtime mode
         // (its default after construction).
+        p->set_input_stream(std::move(stream));
         p->set_decoder(std::move(dec));
         return p;
     }

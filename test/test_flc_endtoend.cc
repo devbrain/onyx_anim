@@ -192,6 +192,44 @@ std::vector<std::uint8_t> build_two_frame_flc() {
     return out;
 }
 
+std::vector<std::uint8_t> build_fli_with_short_copy_size() {
+    constexpr std::uint16_t W = 4, H = 2;
+    constexpr std::array<std::uint8_t, W * H> pixels = {
+        1, 2, 3, 4,
+        5, 6, 7, 8,
+    };
+    const std::uint32_t declared_copy_size =
+        6 + static_cast<std::uint32_t>(pixels.size()) - 2u;
+    const std::uint32_t frame_size =
+        16 + 6 + static_cast<std::uint32_t>(pixels.size());
+    const std::uint32_t file_size = 128 + frame_size;
+
+    std::vector<std::uint8_t> out;
+    out.reserve(file_size);
+
+    put_u32le(out, file_size);
+    put_u16le(out, 0xAF11);                    // magic = FLI
+    put_u16le(out, 1);                         // frame_count = 1
+    put_u16le(out, W); put_u16le(out, H);
+    put_u16le(out, 8); put_u16le(out, 0);
+    put_u32le(out, 12);                        // 70Hz ticks
+    put_u16le(out, 0);
+    out.insert(out.end(), 128 - out.size(), 0);
+    REQUIRE(out.size() == 128);
+
+    put_u32le(out, frame_size);
+    put_u16le(out, 0xF1FA);
+    put_u16le(out, 1);                         // sub_chunks
+    put_u16le(out, 0); put_u16le(out, 0); put_u16le(out, 0); put_u16le(out, 0);
+
+    put_u32le(out, declared_copy_size);
+    put_u16le(out, 16);                        // type 16 = COPY
+    out.insert(out.end(), pixels.begin(), pixels.end());
+
+    REQUIRE(out.size() == file_size);
+    return out;
+}
+
 TEST_CASE("seek_to_frame: forward seek skips state-only through deltas") {
     const auto bytes = build_two_frame_flc();
     auto stream = musac::io_from_memory(bytes.data(), bytes.size());
@@ -337,6 +375,26 @@ TEST_CASE("end-to-end: two-frame FLC with LC delta accumulates state") {
     CHECK(s1.pixels()[2] == 2);
     CHECK(s1.pixels()[3] == 1);   // untouched
 
+    CHECK(dec->eof());
+}
+
+TEST_CASE("end-to-end: FLI COPY may underdeclare payload by two bytes") {
+    const auto bytes = build_fli_with_short_copy_size();
+    auto stream = musac::io_from_memory(bytes.data(), bytes.size());
+
+    auto& reg = onyx_anim::codec_registry::instance();
+    auto dec = reg.create_decoder(stream.get());
+    REQUIRE(dec);
+    REQUIRE(dec->open(stream.get()));
+
+    onyx_image::memory_surface surf;
+    auto fr = dec->decode_frame(surf);
+    REQUIRE(fr);
+    CHECK(fr->index == 0);
+    REQUIRE(surf.pixels().size() >= 8);
+    for (std::size_t i = 0; i < 8; ++i) {
+        CHECK(surf.pixels()[i] == i + 1);
+    }
     CHECK(dec->eof());
 }
 

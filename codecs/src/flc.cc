@@ -211,9 +211,22 @@ namespace onyx_anim {
                         if (off + sh->size > chunk_buf_.size()) {
                             return make_unexpected <error_type>("flc: sub-chunk payload overflow");
                         }
+                        std::size_t payload_size = sh->size - flc::kSubChunkHeaderSize;
+                        if (sh->type == flc::sub_chunk_type::copy &&
+                            sc + 1u == fh->sub_chunks) {
+                            const auto expected_copy_bytes =
+                                static_cast <std::size_t>(file_header_.width) *
+                                static_cast <std::size_t>(file_header_.height);
+                            const auto available_in_frame =
+                                chunk_buf_.size() - (off + flc::kSubChunkHeaderSize);
+                            if (payload_size < expected_copy_bytes &&
+                                available_in_frame >= expected_copy_bytes) {
+                                payload_size = expected_copy_bytes;
+                            }
+                        }
                         const std::span <const std::uint8_t> payload{
                             chunk_buf_.data() + off + flc::kSubChunkHeaderSize,
-                            sh->size - flc::kSubChunkHeaderSize};
+                            payload_size};
 
                         if (auto r = dispatch_sub_chunk(sh->type, payload, palette_changed); !r) {
                             return make_unexpected <error_type>(r.error());

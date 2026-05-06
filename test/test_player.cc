@@ -9,11 +9,69 @@
 #include <musac/sdk/io_stream.hh>
 
 #include <filesystem>
+#include <cstdint>
 #include <string>
+#include <thread>
+#include <vector>
 
 namespace {
+    void put_u16le(std::vector<std::uint8_t>& v, std::uint16_t x) {
+        v.push_back(static_cast<std::uint8_t>(x & 0xFFu));
+        v.push_back(static_cast<std::uint8_t>((x >> 8) & 0xFFu));
+    }
+
+    void put_u32le(std::vector<std::uint8_t>& v, std::uint32_t x) {
+        v.push_back(static_cast<std::uint8_t>(x & 0xFFu));
+        v.push_back(static_cast<std::uint8_t>((x >> 8) & 0xFFu));
+        v.push_back(static_cast<std::uint8_t>((x >> 16) & 0xFFu));
+        v.push_back(static_cast<std::uint8_t>((x >> 24) & 0xFFu));
+    }
+
+    std::vector<std::uint8_t> build_tick_test_flc() {
+        constexpr std::uint16_t W = 2;
+        constexpr std::uint16_t H = 2;
+        constexpr std::uint16_t frame_count = 100;
+        constexpr std::uint32_t frame_size = 16;
+        constexpr std::uint32_t file_size = 128 + frame_size * frame_count;
+
+        std::vector<std::uint8_t> out;
+        out.reserve(file_size);
+
+        put_u32le(out, file_size);
+        put_u16le(out, 0xAF12);
+        put_u16le(out, frame_count);
+        put_u16le(out, W); put_u16le(out, H);
+        put_u16le(out, 8); put_u16le(out, 3);
+        put_u32le(out, 1);                         // 1 ms/frame
+        put_u16le(out, 0);
+        put_u32le(out, 0); put_u32le(out, 0); put_u32le(out, 0); put_u32le(out, 0);
+        put_u16le(out, 1); put_u16le(out, 1);
+        put_u16le(out, 0); put_u16le(out, 0); put_u16le(out, frame_count);
+        put_u32le(out, 0);
+        put_u16le(out, 0); put_u16le(out, 0);
+        out.insert(out.end(), 24, 0);
+        put_u32le(out, 128);
+        put_u32le(out, 128 + frame_size);
+        out.insert(out.end(), 40, 0);
+        REQUIRE(out.size() == 128);
+
+        for (std::uint16_t i = 0; i < frame_count; ++i) {
+            put_u32le(out, frame_size);
+            put_u16le(out, 0xF1FA);
+            put_u16le(out, 0);                     // no subchunks
+            put_u16le(out, 0); put_u16le(out, 0); put_u16le(out, 0); put_u16le(out, 0);
+        }
+
+        REQUIRE(out.size() == file_size);
+        return out;
+    }
+
     std::string smk_sample(const char* filename) {
         return std::string(NEUTRINO_ONYX_ANIM_DATA_DIR) + "/smacker/" + filename;
+    }
+
+    std::string flc_sample(const char* filename) {
+        return std::string(NEUTRINO_ONYX_ANIM_DATA_DIR) + "/fli-flc/" + filename;
     }
 
     bool exists(const std::string& p) {
@@ -61,6 +119,46 @@ TEST_CASE("player: opens a smk file, reports sane info, ticks frames sequentiall
     // Calling advance with the same timestamp again should be a no-op.
     got = p->advance_to_time(info.frame_period, out);
     CHECK_FALSE(got);
+}
+
+TEST_CASE("player: opens an FLI file and renders the first frame") {
+    const auto path = flc_sample("test2.fli");
+    if (!exists(path)) return;
+
+    auto stream = musac::io_from_file(path.c_str(), "rb");
+    REQUIRE(stream != nullptr);
+
+    auto pr = onyx_anim::player::open(std::move(stream));
+    REQUIRE(pr.has_value());
+    auto p = std::move(*pr);
+
+    p->play();
+
+    onyx_image::memory_surface out;
+    CHECK(p->advance_to_time(std::chrono::microseconds{0}, out));
+    CHECK(out.width() == static_cast<int>(p->info().width));
+    CHECK(out.height() == static_cast<int>(p->info().height));
+}
+
+TEST_CASE("player: tick advances the realtime clock") {
+    const auto bytes = build_tick_test_flc();
+    auto stream = musac::io_from_memory(bytes.data(), bytes.size());
+    REQUIRE(stream != nullptr);
+
+    auto pr = onyx_anim::player::open(std::move(stream));
+    REQUIRE(pr.has_value());
+    auto p = std::move(*pr);
+
+    p->play();
+
+    onyx_image::memory_surface out;
+    CHECK(p->tick(out));
+    const auto first_time = p->current_time();
+
+    std::this_thread::sleep_for(std::chrono::milliseconds{5});
+
+    CHECK(p->tick(out));
+    CHECK(p->current_time() > first_time);
 }
 
 TEST_CASE("player: pause prevents ticking") {
