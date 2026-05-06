@@ -7,8 +7,10 @@
 
 #include <musac/sdk/io_stream.hh>
 
+#include <cstdint>
 #include <filesystem>
 #include <string>
+#include <vector>
 
 namespace {
 
@@ -18,6 +20,37 @@ std::string sample(const char* filename) {
 
 bool exists(const std::string& p) {
     return std::filesystem::exists(p);
+}
+
+void put_u16be(std::vector<std::uint8_t>& v, std::uint16_t x) {
+    v.push_back(static_cast<std::uint8_t>((x >> 8) & 0xFFu));
+    v.push_back(static_cast<std::uint8_t>(x & 0xFFu));
+}
+
+void put_u32be(std::vector<std::uint8_t>& v, std::uint32_t x) {
+    v.push_back(static_cast<std::uint8_t>((x >> 24) & 0xFFu));
+    v.push_back(static_cast<std::uint8_t>((x >> 16) & 0xFFu));
+    v.push_back(static_cast<std::uint8_t>((x >> 8) & 0xFFu));
+    v.push_back(static_cast<std::uint8_t>(x & 0xFFu));
+}
+
+void append_cdxl_header(std::vector<std::uint8_t>& v,
+                        std::uint32_t chunk_size,
+                        std::uint16_t width,
+                        std::uint16_t height,
+                        std::uint8_t planes) {
+    v.push_back(0x01);                // STANDARD
+    v.push_back(0x00);                // RGB, BIT_PLANAR
+    put_u32be(v, chunk_size);
+    put_u32be(v, chunk_size);
+    put_u32be(v, 0);
+    put_u16be(v, width);
+    put_u16be(v, height);
+    v.push_back(0);
+    v.push_back(planes);
+    put_u16be(v, 0);                  // cmap bytes
+    put_u16be(v, 0);                  // audio bytes
+    v.insert(v.end(), 8, 0);
 }
 
 } // namespace
@@ -87,4 +120,26 @@ TEST_CASE("cdxl: BIT_LINE pixel orientation is rejected at open()") {
     REQUIRE(dec);
     auto rc = dec->open(stream.get());
     CHECK_FALSE(rc);
+}
+
+TEST_CASE("cdxl: mid-stream geometry changes are rejected") {
+    constexpr std::uint32_t chunk_size = 36; // 32-byte header + 2x2x1 bitplane data
+    std::vector<std::uint8_t> bytes;
+    bytes.reserve(chunk_size * 2u);
+
+    append_cdxl_header(bytes, chunk_size, 2, 2, 1);
+    bytes.insert(bytes.end(), 4, 0);
+    append_cdxl_header(bytes, chunk_size, 4, 2, 1);
+    bytes.insert(bytes.end(), 4, 0);
+
+    auto stream = musac::io_from_memory(bytes.data(), bytes.size());
+    REQUIRE(stream);
+    auto& reg = onyx_anim::codec_registry::instance();
+    auto dec = reg.create_decoder("cdxl");
+    REQUIRE(dec);
+    REQUIRE(dec->open(stream.get()));
+
+    onyx_image::memory_surface surf;
+    REQUIRE(dec->decode_frame(surf));
+    CHECK_FALSE(dec->decode_frame(surf));
 }

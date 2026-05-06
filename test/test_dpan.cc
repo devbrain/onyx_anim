@@ -5,8 +5,11 @@
 
 #include <onyx_image/surface.hpp>
 
+#include <dpan/decoders.hh>
+
 #include <musac/sdk/io_stream.hh>
 
+#include <array>
 #include <filesystem>
 #include <string>
 
@@ -114,4 +117,16 @@ TEST_CASE("dpan: out-of-record-order pages are reassembled correctly") {
         ++decoded;
     }
     CHECK(decoded == static_cast<int>(dec->info().frame_count));
+}
+
+TEST_CASE("dpan: truncated COPY operation is rejected") {
+    std::array<std::uint8_t, 4> fb{};
+    constexpr std::array<std::uint8_t, 6> record = {
+        0x42, 0x00, 0x00, 0x00,
+        0x03,             // COPY 3 literal pixels
+        0xAA,             // only one byte available
+    };
+
+    auto r = dpan::decompress_record(record, fb.data(), 2, 2);
+    CHECK_FALSE(r);
 }

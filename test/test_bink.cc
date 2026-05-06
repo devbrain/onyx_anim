@@ -13,6 +13,7 @@
 #include <filesystem>
 #include <string>
 #include <string_view>
+#include <vector>
 
 namespace {
 
@@ -22,6 +23,18 @@ std::string sample(const char* filename) {
 
 bool exists(const std::string& p) {
     return std::filesystem::exists(p);
+}
+
+void put_u16le(std::vector<std::uint8_t>& v, std::uint16_t x) {
+    v.push_back(static_cast<std::uint8_t>(x & 0xFFu));
+    v.push_back(static_cast<std::uint8_t>((x >> 8) & 0xFFu));
+}
+
+void put_u32le(std::vector<std::uint8_t>& v, std::uint32_t x) {
+    v.push_back(static_cast<std::uint8_t>(x & 0xFFu));
+    v.push_back(static_cast<std::uint8_t>((x >> 8) & 0xFFu));
+    v.push_back(static_cast<std::uint8_t>((x >> 16) & 0xFFu));
+    v.push_back(static_cast<std::uint8_t>((x >> 24) & 0xFFu));
 }
 
 } // namespace
@@ -161,4 +174,39 @@ TEST_CASE("bink: Bink2 magic (KB2*) would be rejected") {
     auto bink = reg.create_decoder("bink");
     REQUIRE(bink);
     CHECK_FALSE(bink->sniff(stream.get()));
+}
+
+TEST_CASE("bink: oversized audio chunk is rejected without integer wrap") {
+    std::vector<std::uint8_t> bytes;
+    bytes.reserve(68);
+
+    bytes.insert(bytes.end(), {'B', 'I', 'K', 'i'});
+    put_u32le(bytes, 60);             // file size minus 8
+    put_u32le(bytes, 1);              // frames
+    put_u32le(bytes, 4);              // largest frame
+    put_u32le(bytes, 1);              // duration
+    put_u32le(bytes, 8);              // width
+    put_u32le(bytes, 8);              // height
+    put_u32le(bytes, 15);             // fps numerator
+    put_u32le(bytes, 1);              // fps denominator
+    put_u32le(bytes, 0);              // flags
+    put_u32le(bytes, 1);              // audio tracks
+
+    put_u32le(bytes, 1024);           // max decoded audio bytes
+    put_u16le(bytes, 22050);          // sample rate
+    put_u16le(bytes, 0);              // RDFT mono
+    put_u32le(bytes, 0);              // track id
+
+    put_u32le(bytes, 65);             // frame offset 64, keyframe bit set
+    put_u32le(bytes, 68);             // frame end
+    put_u32le(bytes, 0xFFFFFFFFu);    // impossible audio payload size
+
+    auto stream = musac::io_from_memory(bytes.data(), bytes.size());
+    auto& reg = onyx_anim::codec_registry::instance();
+    auto dec = reg.create_decoder("bink");
+    REQUIRE(dec);
+    REQUIRE(dec->open(stream.get()));
+
+    onyx_image::memory_surface surf;
+    CHECK_FALSE(dec->decode_frame(surf));
 }

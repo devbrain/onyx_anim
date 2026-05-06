@@ -259,6 +259,24 @@ namespace onyx_anim {
                     }
                     auto h = cdxl::parse_chunk_header({hdr, sizeof(hdr)});
                     if (!h) return make_unexpected<error_type>(h.error());
+                    if (h->csize_cur != first_.csize_cur ||
+                        h->width != first_.width ||
+                        h->height != first_.height ||
+                        h->planes != first_.planes ||
+                        h->por != first_.por ||
+                        h->venc != first_.venc) {
+                        return make_unexpected<error_type>(
+                            "cdxl: mid-stream format changes are not supported");
+                    }
+                    const std::size_t chunk_min =
+                        cdxl::kChunkHeaderSize +
+                        static_cast<std::size_t>(h->cmap_bytes) +
+                        bitmap_size_ +
+                        static_cast<std::size_t>(h->audio_bytes);
+                    if (h->csize_cur < chunk_min) {
+                        return make_unexpected<error_type>(
+                            "cdxl: chunk smaller than declared payloads");
+                    }
 
                     // Read colormap if present and convert to 8-bit RGB.
                     if (h->cmap_bytes > 0u) {

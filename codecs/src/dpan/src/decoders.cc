@@ -26,6 +26,7 @@ namespace dpan {
             const std::uint8_t* dst_end;
             unsigned int x; // column within current row
             unsigned int width;
+            bool source_truncated = false;
         };
 
         bool apply_op(op_state& s, op_kind k,
@@ -37,6 +38,7 @@ namespace dpan {
                 if (k == op_kind::copy) {
                     if (src.size() < strip) {
                         s.x = s.width - remaining;
+                        s.source_truncated = true;
                         return true;
                     }
                     std::memcpy(s.dst, src.data(), strip);
@@ -121,7 +123,12 @@ namespace dpan {
 
             if (count != 0u) {
                 if (type == 0u) {
-                    if (apply_op(s, op_kind::copy, src, -1, count)) break;
+                    if (apply_op(s, op_kind::copy, src, -1, count)) {
+                        if (s.source_truncated) {
+                            return make_unexpected("dpan: COPY data truncated");
+                        }
+                        break;
+                    }
                 } else {
                     auto dummy = std::span <const std::uint8_t>{};
                     if (apply_op(s, op_kind::skip, dummy, -1, count)) break;
@@ -156,7 +163,12 @@ namespace dpan {
                     continue; // wtype 1 or 3 with count 0 = no-op
                 }
                 if (wtype == 2u) {
-                    if (apply_op(s, op_kind::copy, src, -1, wcount)) break;
+                    if (apply_op(s, op_kind::copy, src, -1, wcount)) {
+                        if (s.source_truncated) {
+                            return make_unexpected("dpan: COPY data truncated");
+                        }
+                        break;
+                    }
                 } else if (wtype == 3u) {
                     if (src.empty()) {
                         return make_unexpected("dpan: 16-bit FILL pixel truncated");

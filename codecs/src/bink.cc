@@ -186,7 +186,7 @@ namespace onyx_anim {
                             (static_cast <std::uint32_t>(frame_bytes[1]) << 8u) |
                             (static_cast <std::uint32_t>(frame_bytes[2]) << 16u) |
                             (static_cast <std::uint32_t>(frame_bytes[3]) << 24u);
-                        if (chunk_sz + 4u > frame_bytes.size()) {
+                        if (chunk_sz > frame_bytes.size() - 4u) {
                             return make_unexpected<error_type>(
                                 "bink: audio chunk size out of range");
                         }
@@ -368,7 +368,7 @@ namespace onyx_anim {
                                 (static_cast <std::uint32_t>(fb[1]) << 8u) |
                                 (static_cast <std::uint32_t>(fb[2]) << 16u) |
                                 (static_cast <std::uint32_t>(fb[3]) << 24u);
-                            if (chunk_sz + 4u > fb.size()) {
+                            if (chunk_sz > fb.size() - 4u) {
                                 return make_unexpected<error_type>(
                                     "bink: audio chunk over-runs frame");
                             }

@@ -6,6 +6,7 @@ add_executable(onyx_anim_tests
         test_bytes.cc
         test_flc_endtoend.cc
         test_amiga_anim_audio.cc
+        test_atari_seq.cc
         test_cdxl.cc
         test_yafa.cc
         test_dpan.cc
@@ -26,6 +27,8 @@ target_link_libraries(onyx_anim_tests PRIVATE
         neutrino::onyx_anim_codecs
         neutrino::onyx_anim_player
         lib_flc
+        lib_atari_seq
+        lib_dpan
         lib_bytes
         doctest::doctest
 )

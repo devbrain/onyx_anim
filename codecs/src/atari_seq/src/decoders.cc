@@ -161,6 +161,23 @@ namespace atari_seq {
         if (fb_planar == nullptr) {
             return make_unexpected("seq: framebuffer is null");
         }
+        const std::size_t min_scanline_stride =
+            (static_cast<std::size_t>(frame_width) + 7u) / 8u;
+        if (frame_width == 0u || scanline_stride == 0u ||
+            scanline_stride < min_scanline_stride ||
+            bitplane_stride == 0u ||
+            bitplane_stride % scanline_stride != 0u ||
+            planes == 0u) {
+            return make_unexpected("seq: invalid framebuffer geometry");
+        }
+        const std::size_t frame_height = bitplane_stride / scanline_stride;
+        if (frame_height == 0u ||
+            static_cast<std::size_t>(y_offset) > frame_height ||
+            static_cast<std::size_t>(rect_height) > frame_height - y_offset ||
+            x_offset > frame_width ||
+            rect_width > frame_width - x_offset) {
+            return make_unexpected("seq: frame rect exceeds framebuffer");
+        }
         const bool xor_op = (op == operation::xor_op);
 
         // OP_Copy clears the entire planar bitmap before painting the rect, so
