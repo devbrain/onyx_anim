@@ -111,6 +111,9 @@ CMake options:
   Randelshofer's `seqconverter.jar` are available) format cross-checks.
 - `NEUTRINO_ONYX_ANIM_BUILD_EXAMPLES` — build `anim_player` (SDL3 +
   Dear ImGui front-end) and the small CLI tools.
+- `NEUTRINO_ONYX_ANIM_BUILD_BENCHMARKS` — build `bench_decode`, a
+  nanobench-based decoder benchmark. Use an optimized build type
+  (`Release`, `RelWithDebInfo`, or `MinSizeRel`) for meaningful numbers.
 
 As a consumer:
 
@@ -135,6 +138,13 @@ target_link_libraries(my_engine PRIVATE
 - `examples/anim_to_ppm`, `examples/flc_to_ppm`, `examples/seq_to_ppm` —
   CLI frame dumpers used by the cross-check tests.
 - `examples/anim_dump_audio` — splits the first audio track to raw PCM.
+- `benchmarks/bench_decode` — measures decoder `open()` and
+  `decode_frame()` throughput, grouped by codec type, with optional
+  nanobench JSON/CSV/HTML output. FLI/FLC inputs also print a chunk
+  summary so decoder results can be read against the file's `lc`, `ss2`,
+  `brun`, palette, and other chunk mix. Pass `--chunk-core` to add direct
+  FLI/FLC `lc` and `ss2` sub-chunk decoder benchmarks, including a compiled
+  command-stream prototype, without stream or surface presentation overhead.
 
 ## Cross-checks
 
@@ -160,3 +170,5 @@ Fetched automatically via CMake `FetchContent`:
   transforms for Bink Audio.
 - [tl::expected](https://github.com/TartanLlama/expected) — fallback when
   the toolchain has no `<expected>`.
+- [nanobench](https://github.com/martinus/nanobench) — optional benchmark
+  runner when `NEUTRINO_ONYX_ANIM_BUILD_BENCHMARKS` is enabled.

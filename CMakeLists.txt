@@ -69,6 +69,9 @@ add_library(lib_pocketfft INTERFACE)
 target_include_directories(lib_pocketfft INTERFACE ${pocketfft_SOURCE_DIR})
 target_compile_features(lib_pocketfft INTERFACE cxx_std_17)
 
+option(NEUTRINO_ONYX_ANIM_BUILD_BENCHMARKS
+       "Build decoder performance benchmarks" OFF)
+
 # ============================================================================
 # Sub-libraries
 # ============================================================================
@@ -377,6 +380,20 @@ endif ()
 
 if (NEUTRINO_ONYX_ANIM_BUILD_EXAMPLES)
     add_subdirectory(examples)
+endif ()
+
+# ============================================================================
+# Benchmarks
+# ============================================================================
+
+if (NEUTRINO_ONYX_ANIM_BUILD_BENCHMARKS)
+    if (CMAKE_BUILD_TYPE AND CMAKE_BUILD_TYPE STREQUAL "Debug")
+        message(WARNING
+            "NEUTRINO_ONYX_ANIM_BUILD_BENCHMARKS is ON in a Debug build. "
+            "Benchmark numbers are only meaningful with optimized code "
+            "(Release, RelWithDebInfo, or MinSizeRel).")
+    endif ()
+    add_subdirectory(benchmarks)
 endif ()
 
 # ============================================================================

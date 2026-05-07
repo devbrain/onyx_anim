@@ -1,8 +1,11 @@
 #include <array>
+#include <algorithm>
 #include <cstdint>
 #include <cstring>
+#include <utility>
 #include <vector>
 
+#include <bytes/bytes.hh>
 #include <flc/header.hh>
 #include <flc/chunks.hh>
 #include <flc/decoders.hh>
@@ -18,6 +21,28 @@ namespace onyx_anim {
         [[nodiscard]] bool read_exact(musac::io_stream* s, std::uint8_t* out, std::size_t n) {
             return s->read(out, n) == n;
         }
+
+        enum class compiled_op : std::uint8_t {
+            literal,
+            fill_byte,
+            fill_word,
+            store_byte,
+        };
+
+        struct compiled_command {
+            compiled_op op = compiled_op::literal;
+            std::uint32_t dst = 0;
+            std::uint32_t count = 0;
+            std::uint32_t src = 0;
+            std::uint8_t lo = 0;
+            std::uint8_t hi = 0;
+        };
+
+        struct compiled_sub_chunk {
+            unsigned int sub_chunk_index = 0;
+            std::vector <compiled_command> commands;
+            std::vector <std::uint8_t> literals;
+        };
 
         class flc_decoder_impl final : public anim_decoder {
             public:
@@ -114,7 +139,7 @@ namespace onyx_anim {
                 [[nodiscard]] frame_result decode_frame(onyx_image::surface& out) override {
                     auto fi = advance_state();
                     if (!fi) return fi;
-                    if (auto r = present(out); !r) {
+                    if (auto r = present(out, fi->palette_changed); !r) {
                         return make_unexpected <error_type>(r.error());
                     }
                     return fi;
@@ -166,6 +191,7 @@ namespace onyx_anim {
                 struct frame_entry {
                     std::int64_t  offset;
                     std::uint32_t size;
+                    std::vector <compiled_sub_chunk> compiled;
                 };
 
                 /**
@@ -197,6 +223,7 @@ namespace onyx_anim {
                     }
 
                     bool palette_changed = false;
+                    std::size_t compiled_index = 0;
                     std::size_t off = flc::kFrameHeaderSize;
                     for (unsigned int sc = 0; sc < fh->sub_chunks; ++sc) {
                         if (off + flc::kSubChunkHeaderSize > chunk_buf_.size()) {
@@ -228,7 +255,12 @@ namespace onyx_anim {
                             chunk_buf_.data() + off + flc::kSubChunkHeaderSize,
                             payload_size};
 
-                        if (auto r = dispatch_sub_chunk(sh->type, payload, palette_changed); !r) {
+                        if (sh->type == flc::sub_chunk_type::ss2 &&
+                            compiled_index < fe.compiled.size() &&
+                            fe.compiled[compiled_index].sub_chunk_index == sc) {
+                            execute_compiled(fe.compiled[compiled_index]);
+                            ++compiled_index;
+                        } else if (auto r = dispatch_sub_chunk(sh->type, payload, palette_changed); !r) {
                             return make_unexpected <error_type>(r.error());
                         }
                         off += sh->size;
@@ -287,7 +319,209 @@ namespace onyx_anim {
                     return make_unexpected <error_type>(r.error());
                 }
 
-                [[nodiscard]] result present(onyx_image::surface& out) {
+                void execute_compiled(const compiled_sub_chunk& compiled) {
+                    for (const auto& command : compiled.commands) {
+                        std::uint8_t* dst = fb_.data() + command.dst;
+                        switch (command.op) {
+                            case compiled_op::literal:
+                                std::memcpy(dst,
+                                            compiled.literals.data() + command.src,
+                                            command.count);
+                                break;
+                            case compiled_op::fill_byte:
+                                std::memset(dst, command.lo, command.count);
+                                break;
+                            case compiled_op::fill_word:
+                                for (std::uint32_t i = 0; i < command.count; ++i) {
+                                    dst[i * 2u] = command.lo;
+                                    dst[i * 2u + 1u] = command.hi;
+                                }
+                                break;
+                            case compiled_op::store_byte:
+                                *dst = command.lo;
+                                break;
+                        }
+                    }
+                }
+
+                [[nodiscard]] bool compile_ss2_payload(std::span <const std::uint8_t> payload,
+                                                        unsigned int sub_chunk_index,
+                                                        compiled_sub_chunk& out) const {
+                    const std::uint8_t* p = payload.data();
+                    const std::uint8_t* const end = payload.data() + payload.size();
+                    const auto has = [&p, end](std::size_t n) noexcept {
+                        return static_cast <std::size_t>(end - p) >= n;
+                    };
+
+                    if (!has(2)) return false;
+                    const auto line_count = static_cast <unsigned int>(bytes::read_u16le(p));
+                    p += 2;
+
+                    out.sub_chunk_index = sub_chunk_index;
+                    unsigned int y = 0;
+                    for (unsigned int li = 0; li < line_count; ++li) {
+                        if (!has(2)) return false;
+                        std::uint16_t opcode = bytes::read_u16le(p);
+                        p += 2;
+                        std::uint16_t packet_count = opcode;
+
+                        if ((opcode & 0xC000u) != 0) {
+                            for (;;) {
+                                const unsigned tag = (opcode >> 14) & 0x3u;
+                                if (tag == 0u) {
+                                    packet_count = opcode;
+                                    break;
+                                }
+
+                                if (tag == 0b11u) {
+                                    const auto signed_op = static_cast <std::int16_t>(opcode);
+                                    y += static_cast <unsigned int>(-signed_op);
+                                    if (y > file_header_.height) return false;
+                                } else if (tag == 0b10u) {
+                                    if (y >= file_header_.height || file_header_.width == 0) {
+                                        return false;
+                                    }
+                                    out.commands.push_back({compiled_op::store_byte,
+                                                            static_cast <std::uint32_t>(
+                                                                static_cast <std::size_t>(y) *
+                                                                fb_pitch_ +
+                                                                (file_header_.width - 1u)),
+                                                            1,
+                                                            0,
+                                                            static_cast <std::uint8_t>(opcode & 0xFFu),
+                                                            0});
+                                } else {
+                                    return false;
+                                }
+
+                                if (!has(2)) return false;
+                                opcode = bytes::read_u16le(p);
+                                p += 2;
+                            }
+                        }
+
+                        if (y >= file_header_.height) return false;
+                        unsigned int x = 0;
+                        for (unsigned int packet = 0; packet < packet_count; ++packet) {
+                            if (!has(2)) return false;
+                            const auto col_skip = static_cast <unsigned int>(p[0]);
+                            const auto rle_count = static_cast <std::int8_t>(p[1]);
+                            p += 2;
+
+                            x += col_skip;
+                            if (x > file_header_.width) return false;
+                            if (rle_count == 0) continue;
+
+                            const auto dst = static_cast <std::uint32_t>(
+                                static_cast <std::size_t>(y) * fb_pitch_ + x);
+                            if (rle_count > 0) {
+                                const auto n_words = static_cast <unsigned int>(rle_count);
+                                const auto n_bytes = n_words * 2u;
+                                if (!has(n_bytes)) return false;
+                                if (n_bytes > file_header_.width - x) return false;
+
+                                const auto src = static_cast <std::uint32_t>(out.literals.size());
+                                out.literals.insert(out.literals.end(), p, p + n_bytes);
+                                out.commands.push_back({compiled_op::literal,
+                                                        dst,
+                                                        static_cast <std::uint32_t>(n_bytes),
+                                                        src,
+                                                        0,
+                                                        0});
+                                p += n_bytes;
+                                x += n_bytes;
+                            } else {
+                                const auto n_words = static_cast <unsigned int>(
+                                    -static_cast <int>(rle_count));
+                                const auto n_bytes = n_words * 2u;
+                                if (!has(2)) return false;
+                                if (n_bytes > file_header_.width - x) return false;
+
+                                const std::uint8_t lo = p[0];
+                                const std::uint8_t hi = p[1];
+                                p += 2;
+                                out.commands.push_back({lo == hi ? compiled_op::fill_byte
+                                                                  : compiled_op::fill_word,
+                                                        dst,
+                                                        lo == hi
+                                                            ? static_cast <std::uint32_t>(n_bytes)
+                                                            : static_cast <std::uint32_t>(n_words),
+                                                        0,
+                                                        lo,
+                                                        hi});
+                                x += n_bytes;
+                            }
+                        }
+                        ++y;
+                    }
+                    return true;
+                }
+
+                [[nodiscard]] std::vector <compiled_sub_chunk>
+                    compile_frame_chunks(std::span <const std::uint8_t> frame_bytes) const {
+                    std::vector <compiled_sub_chunk> out;
+                    if (frame_bytes.size() < flc::kFrameHeaderSize) return out;
+
+                    auto fh = flc::parse_frame_header(frame_bytes);
+                    if (!fh) return out;
+
+                    std::size_t off = flc::kFrameHeaderSize;
+                    for (unsigned int sc = 0; sc < fh->sub_chunks; ++sc) {
+                        if (off + flc::kSubChunkHeaderSize > frame_bytes.size()) break;
+
+                        auto sh = flc::parse_sub_chunk_header(
+                            std::span <const std::uint8_t>{
+                                frame_bytes.data() + off, frame_bytes.size() - off});
+                        if (!sh) break;
+                        if (sh->size < flc::kSubChunkHeaderSize ||
+                            off + sh->size > frame_bytes.size()) {
+                            break;
+                        }
+
+                        const std::span <const std::uint8_t> payload{
+                            frame_bytes.data() + off + flc::kSubChunkHeaderSize,
+                            sh->size - flc::kSubChunkHeaderSize};
+                        compiled_sub_chunk compiled;
+                        bool ok = false;
+                        if (sh->type == flc::sub_chunk_type::ss2) {
+                            ok = compile_ss2_payload(payload, sc, compiled);
+                        }
+                        if (ok && !compiled.commands.empty()) {
+                            out.push_back(std::move(compiled));
+                        }
+                        off += sh->size;
+                    }
+
+                    return out;
+                }
+
+                [[nodiscard]] result present(onyx_image::surface& out,
+                                             bool palette_changed) {
+                    if (auto* mem = dynamic_cast <onyx_image::memory_surface*>(&out)) {
+                        const auto w = static_cast <int>(file_header_.width);
+                        const auto h = static_cast <int>(file_header_.height);
+                        if (mem->width() != w || mem->height() != h ||
+                            mem->format() != pixel_format::indexed8) {
+                            if (!mem->set_size(w, h, pixel_format::indexed8)) {
+                                return make_unexpected <error_type>("flc: surface set_size failed");
+                            }
+                            palette_changed = true;
+                        }
+
+                        if (palette_changed || mem->palette().size() != palette_.size()) {
+                            mem->set_palette_size(256);
+                            mem->write_palette(0, std::span <const std::uint8_t>{
+                                palette_.data(), palette_.size()});
+                        }
+
+                        auto pixels = mem->mutable_pixels();
+                        if (pixels.size() < fb_.size()) {
+                            return make_unexpected <error_type>("flc: memory surface too small");
+                        }
+                        std::memcpy(pixels.data(), fb_.data(), fb_.size());
+                        return {};
+                    }
+
                     if (!out.set_size(static_cast <int>(file_header_.width),
                                       static_cast <int>(file_header_.height),
                                       pixel_format::indexed8)) {
@@ -358,11 +592,20 @@ namespace onyx_anim {
                         // as a frame. Match that behavior for compatibility.
                         if (chunk_magic == flc::kFrameMagicStandard ||
                             chunk_magic == flc::kFrameMagicVariant) {
-                            frames_.push_back({offset, chunk_size});
-                        }
-                        const auto body_skip = static_cast <std::int64_t>(chunk_size) - 6;
-                        if (stream_->seek(body_skip, musac::seek_origin::cur) < 0) {
-                            return make_unexpected <error_type>("flc: cannot seek past chunk body");
+                            std::vector <std::uint8_t> frame_bytes(chunk_size);
+                            std::memcpy(frame_bytes.data(), ch.data(), ch.size());
+                            if (!read_exact(stream_, frame_bytes.data() + ch.size(),
+                                            frame_bytes.size() - ch.size())) {
+                                return make_unexpected <error_type>("flc: frame chunk truncated");
+                            }
+                            frames_.push_back({offset,
+                                               chunk_size,
+                                               compile_frame_chunks(frame_bytes)});
+                        } else {
+                            const auto body_skip = static_cast <std::int64_t>(chunk_size) - 6;
+                            if (stream_->seek(body_skip, musac::seek_origin::cur) < 0) {
+                                return make_unexpected <error_type>("flc: cannot seek past chunk body");
+                            }
                         }
                     }
                     return {};
