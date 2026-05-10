@@ -41,7 +41,11 @@ neutrino_target_sanitizers(lib_bink)
 # `float` to `double` literals (`if (fct != 1.)`). Our default warning
 # set treats `-Wdouble-promotion` as an error; relax that just for this
 # translation unit so we don't have to patch the upstream header.
+#
+# `-Wuseless-cast` is GCC-only — Clang doesn't recognise the flag and
+# errors with -Wunknown-warning-option under -Werror. Gate it via a
+# generator expression so it only emits on GCC.
 set_source_files_properties(src/audio.cc
         PROPERTIES COMPILE_OPTIONS
-        "-Wno-double-promotion;-Wno-shadow;-Wno-sign-conversion;-Wno-conversion;-Wno-useless-cast")
+        "-Wno-double-promotion;-Wno-shadow;-Wno-sign-conversion;-Wno-conversion;$<$<CXX_COMPILER_ID:GNU>:-Wno-useless-cast>")
 
