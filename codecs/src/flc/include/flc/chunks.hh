@@ -2,6 +2,7 @@
 
 #include <flc/types.hh>
 
+#include <cstddef>
 #include <cstdint>
 #include <span>
 

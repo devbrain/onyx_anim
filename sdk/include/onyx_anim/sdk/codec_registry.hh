@@ -5,6 +5,7 @@
 
 #include <musac/sdk/io_stream.hh>
 
+#include <cstddef>
 #include <functional>
 #include <memory>
 #include <string_view>

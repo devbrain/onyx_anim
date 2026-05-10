@@ -2,6 +2,7 @@
 
 #include <cdxl/types.hh>
 
+#include <cstddef>
 #include <cstdint>
 #include <span>
 

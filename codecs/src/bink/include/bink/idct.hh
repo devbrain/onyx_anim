@@ -9,6 +9,7 @@
 //   scale_block — duplicate an 8x8 source into a 16x16 destination
 //   add_pixels8 — add an int16 8x8 block to an 8-bit destination
 
+#include <cstddef>
 #include <cstdint>
 
 namespace bink {

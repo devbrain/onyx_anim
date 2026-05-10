@@ -13,6 +13,7 @@
 #include <bink/tree.hh>
 
 #include <array>
+#include <cstddef>
 #include <cstdint>
 #include <vector>
 

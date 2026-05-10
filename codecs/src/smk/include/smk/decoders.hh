@@ -17,6 +17,7 @@
 #include <smk/huffman.hh>
 #include <smk/types.hh>
 
+#include <cstddef>
 #include <cstdint>
 #include <span>
 #include <vector>

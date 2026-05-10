@@ -39,6 +39,7 @@
 #include <smk/types.hh>
 
 #include <array>
+#include <cstddef>
 #include <cstdint>
 #include <span>
 #include <vector>

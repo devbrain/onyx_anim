@@ -2,6 +2,7 @@
 
 #include <dpan/types.hh>
 
+#include <cstddef>
 #include <cstdint>
 #include <span>
 
