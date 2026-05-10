@@ -119,7 +119,11 @@ namespace atari_seq {
             const auto shifted_d2 =
                 static_cast <std::uint8_t>(((d1 << inv_shift) & inv_mask)
                                            | static_cast <unsigned>(d2 >> shift));
-            const auto shifted_d3 = static_cast <std::uint8_t>((d2 << inv_shift) & 0xFFu);
+            // Promote d2 to unsigned before the shift so the `& 0xFFu`
+            // mask doesn't trigger -Wsign-conversion (uint8_t integer-
+            // promotes to signed int by default; matches the pattern on
+            // the shifted_d2 line above).
+            const auto shifted_d3 = static_cast <std::uint8_t>((static_cast <unsigned>(d2) << inv_shift) & 0xFFu);
 
             if (xor_op) {
                 w.fb[w.si] = static_cast <std::uint8_t>(

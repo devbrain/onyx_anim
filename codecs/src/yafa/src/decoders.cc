@@ -6,13 +6,6 @@
 namespace yafa {
     namespace {
         constexpr std::uint32_t kXPKF = 0x58504B46u; // "XPKF"
-
-        constexpr std::uint32_t fourcc(const char (&s)[5]) {
-            return (static_cast<std::uint32_t>(static_cast<std::uint8_t>(s[0])) << 24) |
-                   (static_cast<std::uint32_t>(static_cast<std::uint8_t>(s[1])) << 16) |
-                   (static_cast<std::uint32_t>(static_cast<std::uint8_t>(s[2])) <<  8) |
-                    static_cast<std::uint32_t>(static_cast<std::uint8_t>(s[3]));
-        }
     } // namespace
 
     // ------------------------------------------------------------------------
