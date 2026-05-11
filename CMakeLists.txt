@@ -72,6 +72,48 @@ target_compile_features(lib_pocketfft INTERFACE cxx_std_17)
 option(NEUTRINO_ONYX_ANIM_BUILD_BENCHMARKS
        "Build decoder performance benchmarks" OFF)
 
+# -----------------------------------------------------------------------------
+# Codec selection
+# -----------------------------------------------------------------------------
+# onyx_anim_codecs bundles 8 video codecs. Size-conscious downstreams
+# (warlords needs only FLC for W2Deluxe intros) can bulk-disable then
+# opt back in:
+#
+#   set(NEUTRINO_ONYX_ANIM_CODEC_ALL OFF CACHE BOOL "" FORCE)
+#   set(NEUTRINO_ONYX_ANIM_CODEC_FLC ON  CACHE BOOL "" FORCE)
+#
+# Defaults to ALL ON so existing consumers see no change. Each codec is
+# its own sub-library (codecs/src/<name>/), conditionally added below.
+# register_codecs.cc reads the same NEUTRINO_ONYX_ANIM_CODEC_* macros at
+# compile time and only registers the codecs that are enabled.
+
+neutrino_option_group(NEUTRINO_ONYX_ANIM_CODEC_ALL
+    "Default state for all onyx_anim codecs" ON)
+neutrino_option(NEUTRINO_ONYX_ANIM_CODEC_FLC
+    "FLC/FLI (Autodesk Animator)" ON
+    GROUP NEUTRINO_ONYX_ANIM_CODEC_ALL)
+neutrino_option(NEUTRINO_ONYX_ANIM_CODEC_SMK
+    "SMK (Smacker, RAD)" ON
+    GROUP NEUTRINO_ONYX_ANIM_CODEC_ALL)
+neutrino_option(NEUTRINO_ONYX_ANIM_CODEC_BINK
+    "BIK (Bink, RAD) — pulls pocketfft for audio DCT" ON
+    GROUP NEUTRINO_ONYX_ANIM_CODEC_ALL)
+neutrino_option(NEUTRINO_ONYX_ANIM_CODEC_CDXL
+    "CDXL (Amiga CDTV)" ON
+    GROUP NEUTRINO_ONYX_ANIM_CODEC_ALL)
+neutrino_option(NEUTRINO_ONYX_ANIM_CODEC_DPAN
+    "ANM (Deluxe Paint Animation)" ON
+    GROUP NEUTRINO_ONYX_ANIM_CODEC_ALL)
+neutrino_option(NEUTRINO_ONYX_ANIM_CODEC_YAFA
+    "YAFA (Yet Another Flick Animation)" ON
+    GROUP NEUTRINO_ONYX_ANIM_CODEC_ALL)
+neutrino_option(NEUTRINO_ONYX_ANIM_CODEC_ATARI_SEQ
+    "SEQ (Atari Cyber Paint)" ON
+    GROUP NEUTRINO_ONYX_ANIM_CODEC_ALL)
+neutrino_option(NEUTRINO_ONYX_ANIM_CODEC_AMIGA_ANIM
+    "ANIM (Amiga IFF ANIM-3/5/7/8)" ON
+    GROUP NEUTRINO_ONYX_ANIM_CODEC_ALL)
+
 # ============================================================================
 # Sub-libraries
 # ============================================================================
@@ -403,4 +445,5 @@ endif ()
 neutrino_is_top_level(_is_top_level)
 if (_is_top_level)
     neutrino_print_options(onyx_anim)
+    neutrino_print_summary(onyx_anim)
 endif ()

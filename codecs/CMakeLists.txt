@@ -25,20 +25,51 @@ target_include_directories(onyx_anim_codecs
         $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
 )
 
+# Sub-libs are linked in PRIVATE — they're an implementation detail of
+# onyx_anim_codecs. Each per-codec axis controls whether its sub-lib
+# gets built (add_subdirectory below) and linked. Disabled codecs are
+# completely absent from the build graph.
 target_link_libraries(onyx_anim_codecs
         PUBLIC
         neutrino::onyx_anim_sdk
         PRIVATE
-        lib_flc
-        lib_atari_seq
-        lib_amiga_anim
-        lib_cdxl
-        lib_yafa
-        lib_dpan
-        lib_smk
-        lib_bink
         neutrino::failsafe
 )
+
+# The codec-axis flag macros are also surfaced as compile definitions so
+# register_codecs.cc can #ifdef each registration call. Naming mirrors
+# mzexplode's ONYX_ANIM_HAS_<CODEC> convention.
+foreach(_codec FLC SMK BINK CDXL DPAN YAFA ATARI_SEQ AMIGA_ANIM)
+    if (NEUTRINO_ONYX_ANIM_CODEC_${_codec})
+        target_compile_definitions(onyx_anim_codecs PRIVATE
+            ONYX_ANIM_HAS_${_codec}=1)
+    endif ()
+endforeach ()
+
+if (NEUTRINO_ONYX_ANIM_CODEC_FLC)
+    target_link_libraries(onyx_anim_codecs PRIVATE lib_flc)
+endif ()
+if (NEUTRINO_ONYX_ANIM_CODEC_SMK)
+    target_link_libraries(onyx_anim_codecs PRIVATE lib_smk)
+endif ()
+if (NEUTRINO_ONYX_ANIM_CODEC_BINK)
+    target_link_libraries(onyx_anim_codecs PRIVATE lib_bink)
+endif ()
+if (NEUTRINO_ONYX_ANIM_CODEC_CDXL)
+    target_link_libraries(onyx_anim_codecs PRIVATE lib_cdxl)
+endif ()
+if (NEUTRINO_ONYX_ANIM_CODEC_DPAN)
+    target_link_libraries(onyx_anim_codecs PRIVATE lib_dpan)
+endif ()
+if (NEUTRINO_ONYX_ANIM_CODEC_YAFA)
+    target_link_libraries(onyx_anim_codecs PRIVATE lib_yafa)
+endif ()
+if (NEUTRINO_ONYX_ANIM_CODEC_ATARI_SEQ)
+    target_link_libraries(onyx_anim_codecs PRIVATE lib_atari_seq)
+endif ()
+if (NEUTRINO_ONYX_ANIM_CODEC_AMIGA_ANIM)
+    target_link_libraries(onyx_anim_codecs PRIVATE lib_amiga_anim)
+endif ()
 
 generate_export_header(onyx_anim_codecs
         BASE_NAME onyx_anim_codecs
@@ -56,24 +87,45 @@ set_target_properties(onyx_anim_codecs PROPERTIES
         POSITION_INDEPENDENT_CODE ON
 )
 
-target_sources(onyx_anim_codecs PRIVATE
-        src/flc.cc
-        src/smk.cc
-        src/atari_seq.cc
-        src/amiga_anim.cc
-        src/cdxl.cc
-        src/yafa.cc
-        src/dpan.cc
-        src/bink.cc
-        src/register_codecs.cc
-)
+# register_codecs.cc is always compiled; it #ifdefs out the
+# registration calls for disabled codecs. Per-codec facade .cc files
+# (which forward decode() calls into the sub-lib) are compiled only
+# when their codec is enabled.
+target_sources(onyx_anim_codecs PRIVATE src/register_codecs.cc)
 
+# `bytes` is shared bit-reading utility code used by multiple codec
+# sub-libs; always built regardless of which codecs are enabled.
 add_subdirectory(src/bytes)
-add_subdirectory(src/flc)
-add_subdirectory(src/atari_seq)
-add_subdirectory(src/amiga_anim)
-add_subdirectory(src/cdxl)
-add_subdirectory(src/yafa)
-add_subdirectory(src/dpan)
-add_subdirectory(src/smk)
-add_subdirectory(src/bink)
+
+if (NEUTRINO_ONYX_ANIM_CODEC_FLC)
+    target_sources(onyx_anim_codecs PRIVATE src/flc.cc)
+    add_subdirectory(src/flc)
+endif ()
+if (NEUTRINO_ONYX_ANIM_CODEC_SMK)
+    target_sources(onyx_anim_codecs PRIVATE src/smk.cc)
+    add_subdirectory(src/smk)
+endif ()
+if (NEUTRINO_ONYX_ANIM_CODEC_BINK)
+    target_sources(onyx_anim_codecs PRIVATE src/bink.cc)
+    add_subdirectory(src/bink)
+endif ()
+if (NEUTRINO_ONYX_ANIM_CODEC_CDXL)
+    target_sources(onyx_anim_codecs PRIVATE src/cdxl.cc)
+    add_subdirectory(src/cdxl)
+endif ()
+if (NEUTRINO_ONYX_ANIM_CODEC_DPAN)
+    target_sources(onyx_anim_codecs PRIVATE src/dpan.cc)
+    add_subdirectory(src/dpan)
+endif ()
+if (NEUTRINO_ONYX_ANIM_CODEC_YAFA)
+    target_sources(onyx_anim_codecs PRIVATE src/yafa.cc)
+    add_subdirectory(src/yafa)
+endif ()
+if (NEUTRINO_ONYX_ANIM_CODEC_ATARI_SEQ)
+    target_sources(onyx_anim_codecs PRIVATE src/atari_seq.cc)
+    add_subdirectory(src/atari_seq)
+endif ()
+if (NEUTRINO_ONYX_ANIM_CODEC_AMIGA_ANIM)
+    target_sources(onyx_anim_codecs PRIVATE src/amiga_anim.cc)
+    add_subdirectory(src/amiga_anim)
+endif ()
