@@ -60,7 +60,7 @@ neutrino_fetch_expected()
 # transforms). Vendored via FetchContent so the 3.8k-line header doesn't
 # clutter our tree but the build is still self-contained.
 FetchContent_Declare(pocketfft
-        GIT_REPOSITORY https://gitlab.mpcdf.mpg.de/mtr/pocketfft.git
+        GIT_REPOSITORY https://github.com/mreineck/pocketfft.git
         GIT_TAG        cpp
         GIT_SHALLOW    TRUE
 )
