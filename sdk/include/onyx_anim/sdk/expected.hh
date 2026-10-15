@@ -1,59 +1,27 @@
 #pragma once
 
-#include <string>
-#include <type_traits>
-#include <utility>
-#include <version>
-
-// Use std::expected when available (C++23), tl::expected otherwise.
-#if defined(__cpp_lib_expected) && __cpp_lib_expected >= 202211L
-    #include <expected>
-    namespace onyx_anim {
-        template<typename T, typename E>
-        using expected = std::expected<T, E>;
-
-        template<typename E>
-        using unexpected = std::unexpected<E>;
-
-        // Take by value so the helper works for lvalues, rvalues, AND callers
-        // that pass an explicit template argument (e.g. make_unexpected<std::string>(lvalue)).
-        // The pass-by-T forwarding-reference idiom rejects lvalues when the caller fixes E
-        // explicitly, since `E&&` collapses to a plain rvalue reference there. One extra
-        // move on the error path is the right tradeoff.
-        template<typename E>
-        constexpr auto make_unexpected(E e) {
-            return std::unexpected<E>(std::move(e));
-        }
-
-        inline constexpr bool using_std_expected = true;
-    }
-#else
-    #include <tl/expected.hpp>
-    namespace onyx_anim {
-        template<typename T, typename E>
-        using expected = tl::expected<T, E>;
-
-        template<typename E>
-        using unexpected = tl::unexpected<E>;
-
-        // Take by value so the helper works for lvalues, rvalues, AND callers
-        // that pass an explicit template argument (e.g. make_unexpected<std::string>(lvalue)).
-        // The pass-by-T forwarding-reference idiom rejects lvalues when the caller fixes E
-        // explicitly, since `E&&` collapses to a plain rvalue reference there. One extra
-        // move on the error path is the right tradeoff.
-        template<typename E>
-        constexpr auto make_unexpected(E e) {
-            return tl::unexpected<E>(std::move(e));
-        }
-
-        inline constexpr bool using_std_expected = false;
-    }
-#endif
+#include <failsafe/expected.hh>
 
 namespace onyx_anim {
+    template<typename T, typename E = failsafe::error_type>
+    using expected = failsafe::expected<T, E>;
+
+    template<typename E>
+    using unexpected = failsafe::unexpected<E>;
+
+    using failsafe::unexpect_t;
+    using failsafe::unexpect;
+    using failsafe::bad_expected_access;
+
+    using failsafe::make_unexpected;
+    using failsafe::make_unexpectedf;
+
+    using failsafe::using_std_expected;
+    using failsafe::expected_implementation;
+
     /// Error type used throughout onyx_anim — a human-readable description.
-    using error_type = std::string;
+    using error_type = failsafe::error_type;
 
     /// Common result type for void-returning operations.
-    using result = expected<void, error_type>;
+    using result = failsafe::result;
 } // namespace onyx_anim

@@ -24,7 +24,7 @@ target_link_libraries(onyx_anim_sdk
         PUBLIC
         neutrino::onyx_image
         neutrino::musac
-        tl::expected
+        neutrino::failsafe
 )
 
 generate_export_header(onyx_anim_sdk

@@ -53,8 +53,8 @@ neutrino_fetch_onyx_image()
 include(${NEUTRINO_CMAKE_DIR}/deps/musac.cmake)
 neutrino_fetch_musac()
 
-include(${NEUTRINO_CMAKE_DIR}/deps/expected.cmake)
-neutrino_fetch_expected()
+include(${NEUTRINO_CMAKE_DIR}/deps/failsafe.cmake)
+neutrino_fetch_failsafe()
 
 # PocketFFT — header-only FFT library used by Bink Audio (RDFT + DCT
 # transforms). Vendored via FetchContent so the 3.8k-line header doesn't
